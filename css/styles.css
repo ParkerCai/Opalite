@@ -3,7 +3,7 @@
 /* Key rules: 48dp min touch targets, 4.5:1 contrast, semantic HTML, focus visible */
 
 :root {
-  --bg: #000000;
+  --bg: #0a0a0a;
   --surface: #1a1a1a;
   --border: #333;
   --accent: #00d4ff;
@@ -167,10 +167,10 @@ html, body {
 
 .camera-video {
   position: absolute;
-  top: calc(72px + env(safe-area-inset-top, 0px));
+  top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 72px;
+  bottom: 64px;
   width: 100%;
   height: calc(100% - 128px);
   object-fit: cover;
@@ -180,10 +180,10 @@ html, body {
 
 .camera-overlay {
   position: absolute;
-  top: calc(72px + env(safe-area-inset-top, 0px));
+  top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 72px;
+  bottom: 64px;
   border-radius: 28px;
   background: linear-gradient(
     to bottom,
@@ -199,12 +199,13 @@ html, body {
 .status-bar {
   position: absolute;
   top: 0; left: 0; right: 0;
+  height: 56px;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 20px;
-  padding-top: calc(12px + env(safe-area-inset-top, 0px));
+  padding: 0 20px;
+  padding-top: env(safe-area-inset-top);
   background: var(--bg);
 }
 
@@ -253,10 +254,10 @@ html, body {
 /* ── Tap Zone ────────────────────────────────────────────────── */
 .tap-zone {
   position: absolute;
-  top: calc(72px + env(safe-area-inset-top, 0px));
+  top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 72px;
+  bottom: 64px;
   z-index: 3;
   border-radius: 28px;
   cursor: pointer;
