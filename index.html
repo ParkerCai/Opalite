@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=34">
+  <link rel="stylesheet" href="css/styles.css?v=35">
 </head>
 <body>
 
@@ -48,12 +48,8 @@
   <!-- ── Session Screen ───────────────────────────────────────── -->
   <div id="session-screen" class="screen hidden">
     <div class="session-container">
-      <!-- Camera block -->
-      <div class="camera-wrapper">
-        <video id="camera-preview" class="camera-video" playsinline muted autoplay aria-label="Camera preview"></video>
-        <div class="camera-overlay"></div>
 
-      <!-- Status bar -->
+      <!-- TOP BAR -->
       <div class="status-bar">
         <div class="status-indicator">
           <div id="status-dot" class="status-dot" aria-hidden="true"></div>
@@ -62,26 +58,17 @@
         <button id="stop-btn" class="stop-btn" aria-label="End session">End</button>
       </div>
 
-        <!-- Tap zone — tap anywhere on camera to trigger description -->
+      <!-- CAMERA (flex: 1, fills remaining space) -->
+      <div class="camera-wrapper">
+        <video id="camera-preview" class="camera-video" playsinline muted autoplay aria-label="Camera preview"></video>
+        <div class="camera-overlay"></div>
         <div id="tap-zone" class="tap-zone" role="button" tabindex="0" aria-label="Tap to describe what's ahead"></div>
-        <!-- Pulse ring (visible when AI speaks) -->
         <div class="pulse-ring-container">
           <div id="pulse-ring" class="pulse-ring" aria-hidden="true"></div>
         </div>
-      </div><!-- /camera-wrapper -->
-
-      <!-- Live region for TalkBack — announces status changes -->
-      <div id="a11y-announce" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);"></div>
-
-      <!-- Error banner -->
-      <div id="error-banner" class="error-banner" role="alert">
-        <span id="error-text"></span>
       </div>
 
-      <!-- Debug: shows captured frame on tap (3 sec) -->
-      <img id="debug-frame" style="display:none; position:absolute; bottom:140px; right:16px; width:160px; border:2px solid #00d4ff; border-radius:8px; z-index:20;" alt="debug frame">
-
-      <!-- Bottom controls -->
+      <!-- BOTTOM BAR -->
       <div class="controls-bar">
         <button id="mic-btn" class="control-btn" aria-label="Mute microphone">
           <span class="btn-label">Mute</span>
@@ -90,6 +77,12 @@
           <span class="btn-label">Flip</span>
         </button>
       </div>
+
+      <!-- Error banner -->
+      <div id="error-banner" class="error-banner" role="alert">
+        <span id="error-text"></span>
+      </div>
+      <div id="a11y-announce" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);"></div>
     </div>
   </div>
 

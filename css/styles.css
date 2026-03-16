@@ -398,7 +398,6 @@ html, body {
 
 .modal-box {
   background: var(--surface);
-  border: 2px solid var(--border);
   border-radius: var(--radius);
   padding: 28px 24px;
   width: 280px;
