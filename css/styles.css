@@ -167,7 +167,7 @@ html, body {
 
 .camera-video {
   position: absolute;
-  top: 64px;
+  top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   bottom: 64px;
@@ -180,7 +180,7 @@ html, body {
 
 .camera-overlay {
   position: absolute;
-  top: 64px;
+  top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   bottom: 64px;
@@ -254,7 +254,7 @@ html, body {
 /* ── Tap Zone ────────────────────────────────────────────────── */
 .tap-zone {
   position: absolute;
-  top: 64px;
+  top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
   bottom: 64px;
