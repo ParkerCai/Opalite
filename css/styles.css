@@ -170,7 +170,7 @@ html, body {
   top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 80px;
+  bottom: 72px;
   width: 100%;
   height: calc(100% - 128px);
   object-fit: cover;
@@ -183,7 +183,7 @@ html, body {
   top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 80px;
+  bottom: 72px;
   border-radius: 28px;
   background: linear-gradient(
     to bottom,
@@ -257,7 +257,7 @@ html, body {
   top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 80px;
+  bottom: 72px;
   z-index: 3;
   border-radius: 28px;
   cursor: pointer;
