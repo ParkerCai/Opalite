@@ -24,6 +24,7 @@ html, body {
   height: 100%;
   width: 100%;
   overflow: hidden;
+  border: none;
   font-family: 'Google Sans', 'Roboto', -apple-system, BlinkMacSystemFont, sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -166,12 +167,12 @@ html, body {
 
 .camera-video {
   position: absolute;
-  top: 80px;
+  top: 64px;
   left: 0;
   right: 0;
-  bottom: 80px;
+  bottom: 64px;
   width: 100%;
-  height: calc(100% - 164px);
+  height: calc(100% - 128px);
   object-fit: cover;
   border-radius: 28px;
   z-index: 0;
@@ -179,10 +180,10 @@ html, body {
 
 .camera-overlay {
   position: absolute;
-  top: 80px;
+  top: 64px;
   left: 0;
   right: 0;
-  bottom: 80px;
+  bottom: 64px;
   border-radius: 28px;
   background: linear-gradient(
     to bottom,
@@ -198,7 +199,7 @@ html, body {
 .status-bar {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 80px;
+  height: 56px;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -253,10 +254,10 @@ html, body {
 /* ── Tap Zone ────────────────────────────────────────────────── */
 .tap-zone {
   position: absolute;
-  top: 80px;
+  top: 64px;
   left: 0;
   right: 0;
-  bottom: 80px;
+  bottom: 64px;
   z-index: 3;
   border-radius: 28px;
   cursor: pointer;
@@ -311,7 +312,7 @@ html, body {
 .controls-bar {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  height: 80px;
+  height: 56px;
   z-index: 10;
   display: flex;
   align-items: center;
