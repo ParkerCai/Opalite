@@ -2,7 +2,7 @@
   "name": "Opalite",
   "short_name": "Opalite",
   "description": "AI vision assistant — See through crafted light.",
-  "start_url": "/",
+  "start_url": "/Opalite/",
   "display": "fullscreen",
   "orientation": "portrait",
   "background_color": "#000000",
