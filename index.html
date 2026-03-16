@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=32">
+  <link rel="stylesheet" href="css/styles.css?v=33">
 </head>
 <body>
 
@@ -48,9 +48,10 @@
   <!-- ── Session Screen ───────────────────────────────────────── -->
   <div id="session-screen" class="screen hidden">
     <div class="session-container">
-      <!-- Camera feed fills viewport -->
-      <video id="camera-preview" class="camera-video" playsinline muted autoplay aria-label="Camera preview"></video>
-      <div class="camera-overlay"></div>
+      <!-- Camera block -->
+      <div class="camera-wrapper">
+        <video id="camera-preview" class="camera-video" playsinline muted autoplay aria-label="Camera preview"></video>
+        <div class="camera-overlay"></div>
 
       <!-- Status bar -->
       <div class="status-bar">
@@ -61,16 +62,16 @@
         <button id="stop-btn" class="stop-btn" aria-label="End session">End</button>
       </div>
 
-      <!-- Tap zone — tap anywhere on camera to trigger description -->
-      <div id="tap-zone" class="tap-zone" role="button" tabindex="0" aria-label="Tap to describe what's ahead"></div>
+        <!-- Tap zone — tap anywhere on camera to trigger description -->
+        <div id="tap-zone" class="tap-zone" role="button" tabindex="0" aria-label="Tap to describe what's ahead"></div>
+        <!-- Pulse ring (visible when AI speaks) -->
+        <div class="pulse-ring-container">
+          <div id="pulse-ring" class="pulse-ring" aria-hidden="true"></div>
+        </div>
+      </div><!-- /camera-wrapper -->
 
       <!-- Live region for TalkBack — announces status changes -->
       <div id="a11y-announce" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);"></div>
-
-      <!-- Pulse ring (visible when AI speaks) -->
-      <div class="pulse-ring-container">
-        <div id="pulse-ring" class="pulse-ring" aria-hidden="true"></div>
-      </div>
 
       <!-- Error banner -->
       <div id="error-banner" class="error-banner" role="alert">
