@@ -170,7 +170,7 @@ html, body {
   top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 64px;
+  bottom: 80px;
   width: 100%;
   height: calc(100% - 128px);
   object-fit: cover;
@@ -183,7 +183,7 @@ html, body {
   top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 64px;
+  bottom: 80px;
   border-radius: 28px;
   background: linear-gradient(
     to bottom,
@@ -199,7 +199,7 @@ html, body {
 .status-bar {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 56px;
+  height: 72px;
   z-index: 10;
   display: flex;
   align-items: center;
@@ -257,7 +257,7 @@ html, body {
   top: calc(64px + env(safe-area-inset-top, 0px));
   left: 0;
   right: 0;
-  bottom: 64px;
+  bottom: 80px;
   z-index: 3;
   border-radius: 28px;
   cursor: pointer;
@@ -312,7 +312,7 @@ html, body {
 .controls-bar {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  height: 56px;
+  height: 72px;
   z-index: 10;
   display: flex;
   align-items: center;
