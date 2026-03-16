@@ -3,7 +3,7 @@
 /* Key rules: 48dp min touch targets, 4.5:1 contrast, semantic HTML, focus visible */
 
 :root {
-  --bg: #0a0a0a;
+  --bg: #000000;
   --surface: #1a1a1a;
   --border: #333;
   --accent: #00d4ff;
