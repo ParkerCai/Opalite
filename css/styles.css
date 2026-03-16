@@ -159,6 +159,11 @@ html, body {
 }
 
 /* ── Session Screen ──────────────────────────────────────────── */
+#session-screen {
+  align-items: stretch;
+  justify-content: stretch;
+}
+
 .session-container {
   width: 100%;
   height: 100%;
