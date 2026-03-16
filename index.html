@@ -6,46 +6,30 @@
   <meta name="theme-color" content="#0a0a0a">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <title>VisionGuide — AI Vision Assistant</title>
-  <link rel="stylesheet" href="css/styles.css">
+  <title>Opalite — AI Vision Assistant</title>
+  <link rel="manifest" href="manifest.json">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css?v=18">
 </head>
 <body>
 
   <!-- ── Setup Screen ─────────────────────────────────────────── -->
   <div id="setup-screen" class="screen">
     <div class="setup-container">
-      <div class="app-icon" aria-hidden="true">👁️</div>
-      <h1 class="app-title">VisionGuide</h1>
-      <p class="app-tagline">Your AI eyes, always watching</p>
+      <img src="assets/opalite-stone.png" class="hero-img" alt="Opalite gemstone" aria-hidden="true">
+      <h1 class="app-title">Opalite</h1>
+      <p class="app-tagline">See through crafted light.</p>
 
-      <div class="input-group">
-        <label for="api-key">Gemini API Key</label>
-        <input
-          type="password"
-          id="api-key"
-          placeholder="Paste your API key here"
-          autocomplete="off"
-          aria-label="Gemini API Key"
-        >
-      </div>
+      <input type="hidden" id="api-key">
 
-      <div class="input-group">
-        <label for="fps-select">Camera FPS</label>
-        <select id="fps-select" aria-label="Camera frames per second">
-          <option value="1">1 FPS (low bandwidth)</option>
-          <option value="2" selected>2 FPS (recommended)</option>
-          <option value="3">3 FPS</option>
-          <option value="5">5 FPS (high detail)</option>
-        </select>
-      </div>
-
-      <button id="start-btn" class="start-btn" aria-label="Start VisionGuide">
-        Start VisionGuide
+      <button id="start-btn" class="start-btn" aria-label="Start Opalite">
+        Start Opalite
       </button>
 
       <div class="setup-footer">
-        Need an API key? Get one free at<br>
-        <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>
+        Powered by Gemini Live API
       </div>
     </div>
   </div>
@@ -66,6 +50,12 @@
         <button id="stop-btn" class="stop-btn" aria-label="End session">End</button>
       </div>
 
+      <!-- Tap zone — tap anywhere on camera to trigger description -->
+      <div id="tap-zone" class="tap-zone" role="button" tabindex="0" aria-label="Tap to describe what's ahead"></div>
+
+      <!-- Live region for TalkBack — announces status changes -->
+      <div id="a11y-announce" aria-live="assertive" aria-atomic="true" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);"></div>
+
       <!-- Pulse ring (visible when AI speaks) -->
       <div class="pulse-ring-container">
         <div id="pulse-ring" class="pulse-ring" aria-hidden="true"></div>
@@ -76,20 +66,34 @@
         <span id="error-text"></span>
       </div>
 
+      <!-- Debug: shows captured frame on tap (3 sec) -->
+      <img id="debug-frame" style="display:none; position:absolute; bottom:140px; right:16px; width:160px; border:2px solid #00d4ff; border-radius:8px; z-index:20;" alt="debug frame">
+
       <!-- Bottom controls -->
       <div class="controls-bar">
         <button id="mic-btn" class="control-btn" aria-label="Mute microphone">
-          <span class="btn-icon">🎙️</span>
           <span class="btn-label">Mute</span>
         </button>
         <button id="switch-cam-btn" class="control-btn" aria-label="Switch camera">
-          <span class="btn-icon">🔄</span>
           <span class="btn-label">Flip</span>
         </button>
       </div>
     </div>
   </div>
 
+  <!-- Exit confirmation modal -->
+  <div id="exit-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-label="Confirm exit">
+    <div class="modal-box">
+      <p class="modal-text">End session?</p>
+      <div class="modal-buttons">
+        <button id="exit-cancel" class="modal-btn modal-btn-cancel" aria-label="Cancel">Cancel</button>
+        <button id="exit-confirm" class="modal-btn modal-btn-confirm" aria-label="End session">End</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Local dev: paste your API key in config.local.js (gitignored) -->
+  <script src="config.local.js"></script>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

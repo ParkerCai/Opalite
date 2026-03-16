@@ -1,0 +1,18 @@
+{
+  "name": "Opalite",
+  "short_name": "Opalite",
+  "description": "AI vision assistant — See through crafted light.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "portrait",
+  "background_color": "#0a0a0a",
+  "theme_color": "#0a0a0a",
+  "icons": [
+    {
+      "src": "assets/opalite-stone.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

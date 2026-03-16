@@ -1,12 +1,12 @@
-# VisionGuide 👁️
+# Opalite 👁️
 
 **Real-time AI vision assistant for blind and low-vision users.**
 
-VisionGuide uses the Gemini Live API to see through your phone's camera and describe the world around you — obstacles, signs, people, navigation cues — all through natural voice, hands-free.
+Opalite uses the Gemini Live API to see through your phone's camera and describe the world around you — obstacles, signs, people, navigation cues — all through natural voice, hands-free.
 
 > Built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) hackathon.
 
-![VisionGuide Demo](assets/demo-placeholder.png)
+![Opalite Demo](assets/demo-placeholder.png)
 
 ## How It Works
 
@@ -17,7 +17,7 @@ Phone Camera → WebSocket → Gemini Live API → Audio Response → Speaker/Ea
 One model. One API call. No separate OCR, no separate TTS, no separate STT. Gemini Live handles vision + voice together in real-time.
 
 **The user experience:**
-1. Open VisionGuide on your phone
+1. Open Opalite on your phone
 2. Point the camera at the world
 3. AI describes what it sees: "Door ahead, 10 feet. Sign reads EXIT. Person approaching from your right."
 4. Ask questions by voice: "What color is that building?" — AI responds instantly
@@ -82,7 +82,7 @@ Or upload to a GCS bucket with static website hosting enabled.
 │  └────┬─────┘  └────┬─────┘  └───────▲───────┘  │
 │       │              │                │          │
 │  ┌────▼──────────────▼────────────────┤──────┐   │
-│  │          VisionGuide Web App       │      │   │
+│  │          Opalite Web App       │      │   │
 │  │  • Camera frames (JPEG, 2 FPS)    │      │   │
 │  │  • Audio chunks (PCM16, 16kHz)    │      │   │
 │  │  • Audio playback (PCM16, 24kHz)  │      │   │

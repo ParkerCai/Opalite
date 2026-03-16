@@ -6,12 +6,12 @@ export class AudioStreamer {
   constructor(audioContext) {
     this.context = audioContext;
     this.sampleRate = 24000;
-    this.bufferSize = Math.floor(this.sampleRate * 0.32); // 320ms
+    this.bufferSize = Math.floor(this.sampleRate * 0.2); // 200ms — balance latency and reliability
     this.audioQueue = [];
     this.processingBuffer = new Float32Array(0);
     this.isPlaying = false;
     this.scheduledTime = 0;
-    this.initialBufferTime = 0.05;
+    this.initialBufferTime = 0.01; // 10ms — start playing almost immediately
     this.isInitialized = false;
     this.scheduledSources = new Set();
     this.checkInterval = null;
@@ -25,7 +25,10 @@ export class AudioStreamer {
     if (this.context.state === 'suspended') {
       this.context.resume();
     }
+    this.isStreamComplete = false;
     this.scheduledTime = this.context.currentTime + this.initialBufferTime;
+    // Cancel any pending gain ramps (from stop() fade-out) before restoring volume
+    this.gainNode.gain.cancelScheduledValues(this.context.currentTime);
     this.gainNode.gain.setValueAtTime(1, this.context.currentTime);
     this.isInitialized = true;
   }
@@ -119,6 +122,28 @@ export class AudioStreamer {
     try {
       this.gainNode.gain.linearRampToValueAtTime(0, this.context.currentTime + 0.1);
     } catch (_) {}
+  }
+
+  /**
+   * Clear queued audio without full stop/reinit cycle.
+   * Avoids the gain fade-out that causes stutter on restart.
+   */
+  clear() {
+    for (const src of this.scheduledSources) {
+      try { src.stop(); src.disconnect(); } catch (_) {}
+    }
+    this.scheduledSources.clear();
+    this.audioQueue = [];
+    this.processingBuffer = new Float32Array(0);
+    this.isPlaying = false;
+    if (this.checkInterval) {
+      clearInterval(this.checkInterval);
+      this.checkInterval = null;
+    }
+    // Keep gain at 1 — no fade out
+    this.gainNode.gain.cancelScheduledValues(this.context.currentTime);
+    this.gainNode.gain.setValueAtTime(1, this.context.currentTime);
+    this.scheduledTime = this.context.currentTime + this.initialBufferTime;
   }
 
   /** Is there audio currently scheduled/playing? */

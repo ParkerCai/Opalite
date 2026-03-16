@@ -30,7 +30,7 @@ export class GeminiClient {
       });
 
       this.ws.addEventListener('error', (e) => {
-        const msg = 'WebSocket error: ' + (e.message || 'connection failed');
+        const msg = 'WebSocket connection failed. Check API key and that Generative Language API is enabled.';
         if (this.onError) this.onError(msg);
         reject(new Error(msg));
       });
@@ -38,7 +38,7 @@ export class GeminiClient {
       this.ws.addEventListener('close', (e) => {
         console.info('WebSocket closed', e.code, e.reason);
         if (this.onError && e.code !== 1000) {
-          this.onError('Connection closed: ' + (e.reason || 'unknown'));
+          this.onError('Connection closed (code ' + e.code + '): ' + (e.reason || 'Check API key / model access'));
         }
       });
 
@@ -79,11 +79,44 @@ export class GeminiClient {
     });
   }
 
+  /**
+   * Send a short silence burst to trigger server-side interruption via VAD.
+   */
+  sendInterrupt() {
+    // 200ms of silence at 16kHz = 6400 bytes of zeros as PCM16
+    const silence = new Int16Array(3200); // 200ms at 16kHz
+    let binary = '';
+    const bytes = new Uint8Array(silence.buffer);
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    this.sendAudio(btoa(binary));
+  }
+
   sendText(text, endOfTurn = true) {
     this._send({
       clientContent: {
         turns: [{ role: 'user', parts: [{ text }] }],
         turnComplete: endOfTurn
+      }
+    });
+  }
+
+  /**
+   * Send an image + text together in one turn so the model
+   * sees them as a single request.
+   */
+  sendImageWithText(base64jpeg, text) {
+    this._send({
+      clientContent: {
+        turns: [{
+          role: 'user',
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64jpeg } },
+            { text }
+          ]
+        }],
+        turnComplete: true
       }
     });
   }

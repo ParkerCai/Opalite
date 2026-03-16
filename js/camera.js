@@ -59,6 +59,8 @@ export class CameraManager {
    */
   capture() {
     if (!this.isInitialized) throw new Error('Camera not initialized');
+    // Skip if video isn't actually playing yet
+    if (this.video.readyState < 2) return null;
     this.ctx.drawImage(this.video, 0, 0, this.canvas.width, this.canvas.height);
     return this.canvas.toDataURL('image/jpeg', this.quality).split(',')[1];
   }

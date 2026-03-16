@@ -1,5 +1,5 @@
 /**
- * VisionGuide — Main application orchestrator.
+ * Opalite — Main application orchestrator.
  * Connects camera, microphone, and Gemini Live API together.
  */
 import { GeminiClient } from './gemini-client.js';
@@ -8,30 +8,34 @@ import { AudioStreamer } from './audio-streamer.js';
 import { CameraManager } from './camera.js';
 
 // ── System Prompt ──────────────────────────────────────────────
-const SYSTEM_PROMPT = `You are VisionGuide, a real-time AI vision assistant for people who are blind or have low vision. You see the world through the user's phone camera and describe it to help them navigate safely.
+const SYSTEM_PROMPT = `You are Opalite, a vision assistant helping a user navigate the world through their phone camera. You receive continuous camera frames.
 
-RULES:
-1. SAFETY FIRST: Always prioritize immediate hazards. Call out obstacles, stairs, curbs, traffic, and moving objects urgently.
-2. BE CONCISE: Use short, clear descriptions. "Door ahead, 10 feet. Steps going down, 3 steps." Not paragraphs.
-3. SPATIAL AWARENESS: Use clock positions or relative directions. "Person approaching from your right." "Sign above you at 12 o'clock."
-4. READ TEXT: Automatically read signs, labels, menus, price tags, screens when visible.
-5. CONTEXT MEMORY: Remember the environment context. If you already described something, don't repeat unless it changes.
-6. NATURAL SPEECH: Speak naturally but clearly. You're a companion, not a robot.
-7. PROACTIVE: Don't wait to be asked. If you see something important, say it immediately.
-8. DESCRIBE ON REQUEST: When the user asks "what do you see?" give a comprehensive scene description.
-9. NAVIGATION: Help with wayfinding. "You're approaching an intersection. Crosswalk is straight ahead."
-10. PEOPLE: Describe people's general appearance and actions when relevant for navigation. "Someone is standing in the doorway."
+YOUR JOB: Proactively narrate what you see as it changes. Do not wait to be asked. You are the user's eyes.
 
-Start by introducing yourself briefly: "VisionGuide connected. I can see through your camera. Point me anywhere and I'll describe what's ahead."
+WHEN TO SPEAK:
+- Always describe what is in the current image when prompted
+- Hazard detected: stairs, curb, obstacle, traffic, wet floor — say it urgently, start with "Alert."
+- Visible text: read signs, labels, doors, menus automatically
+- NEVER say "no changes", "nothing changed", "no significant changes", or anything about changes. Just describe what you see or stay completely silent.
 
-Voice: Calm, confident, clear. Like a trusted friend walking beside them.`;
+HOW TO SPEAK:
+- Short. Max 2 sentences per update.
+- Objects and positions only. No artistic language.
+- Use: ahead, left, right, close, far
+- For hazards, start with "Careful:" or "Watch out:"
+- Speak fast. The user needs quick information.
+
+NEVER: invent objects not visible, describe the phone/hands, use background/foreground terms, repeat yourself.
+
+IMPORTANT: When you detect a hazard (stairs, curb, obstacle, traffic, wet floor, drop, edge), say the word "ALERT" before your description. Example: "Alert. Stairs ahead, going down."
+This helps the app trigger a vibration warning for the user.`;
 
 // ── Gemini Config ──────────────────────────────────────────────
 function getConfig() {
   return {
-    model: 'models/gemini-2.0-flash-live-001',
+    model: 'models/gemini-2.5-flash-native-audio-latest',
     generationConfig: {
-      temperature: 0.7,
+      temperature: 0.3,
       responseModalities: ['AUDIO'],
       speechConfig: {
         voiceConfig: {
@@ -65,7 +69,7 @@ const cameraPreview = document.getElementById('camera-preview');
 const pulseRing = document.getElementById('pulse-ring');
 const errorBanner = document.getElementById('error-banner');
 const errorText = document.getElementById('error-text');
-const fpsSelect = document.getElementById('fps-select');
+const FPS = 1; // Fixed at 1 FPS per Google's recommendation
 
 // ── App State ──────────────────────────────────────────────────
 let client = null;
@@ -76,17 +80,23 @@ let audioContext = null;
 let cameraInterval = null;
 let wakeLock = null;
 let speakingCheckInterval = null;
+let nudgeInterval = null;
+let lastAISpokeAt = 0;
+let lastFrameSentAt = 0;
 
 // ── Helpers ────────────────────────────────────────────────────
 function setStatus(state, text) {
   statusDot.className = 'status-dot ' + state;
   statusText.textContent = text;
+  // Announce to TalkBack/screen readers via aria-live region
+  const announce = document.getElementById('a11y-announce');
+  if (announce) announce.textContent = text;
 }
 
 function showError(msg) {
   errorText.textContent = msg;
   errorBanner.classList.add('visible');
-  setTimeout(() => errorBanner.classList.remove('visible'), 6000);
+  setTimeout(() => errorBanner.classList.remove('visible'), 15000);
 }
 
 function vibrate(pattern) {
@@ -113,7 +123,7 @@ async function startSession() {
     showError('Please enter your Gemini API key');
     return;
   }
-  localStorage.setItem('vg_apiKey', apiKey);
+  localStorage.setItem('oe_apiKey', apiKey);
 
   startBtn.disabled = true;
   startBtn.textContent = 'Connecting…';
@@ -124,18 +134,59 @@ async function startSession() {
     client = new GeminiClient(apiKey, getConfig());
 
     client.onSetupComplete = () => {
-      setStatus('connected', 'Connected — listening');
+      setStatus('connected', 'Connected — starting camera…');
       vibrate(200);
-      // Trigger initial greeting
-      client.sendText('I just connected. Introduce yourself and tell me you can see through my camera.');
+      // Don't send any text yet — wait for camera frames to arrive first
+      // The AI will start describing once it receives real frames
     };
 
+    // Flag to send greeting after first frame
+    let greetingSent = false;
+
+    let firstAudioChunk = true;
     client.onAudio = (bytes) => {
-      if (streamer) {
-        if (!streamer.isInitialized) streamer.initialize();
-        streamer.streamAudio(bytes);
+      if (!streamer) return;
+      if (!streamer.isInitialized) {
+        streamer.initialize();
+      }
+      if (firstAudioChunk) {
+        vibrate(30);
+        firstAudioChunk = false;
+      }
+      streamer.streamAudio(bytes);
+      lastAISpokeAt = Date.now();
+      setStatus('speaking', 'Speaking…');
+    };
+
+    // Hazard detection: when AI sends text containing hazard words, vibrate strongly
+    client.onText = (text) => {
+      const lower = text.toLowerCase();
+      const hazardWords = ['careful', 'watch out', 'hazard', 'stairs', 'step', 'curb',
+        'obstacle', 'traffic', 'car', 'vehicle', 'hole', 'wet', 'drop', 'edge', 'stop'];
+      if (hazardWords.some(w => lower.includes(w))) {
+        vibrate([100, 50, 100, 50, 100]); // strong triple-pulse for hazard
       }
     };
+
+    client.onTurnComplete = () => {
+      firstAudioChunk = true;
+      setStatus('connected', 'Listening…');
+    };
+
+    // Auto-narration: every 4 seconds of silence, nudge the model
+    lastAISpokeAt = Date.now();
+    nudgeInterval = setInterval(() => {
+      if (!client || !client.isConnected) return;
+      if (Date.now() - lastAISpokeAt > 4000) {
+        if (camera && camera.isInitialized) {
+          const frame = camera.capture();
+          if (frame) {
+            client.sendImageWithText(frame, 'Describe what you see.');
+            lastAISpokeAt = Date.now();
+          }
+        }
+      }
+    }, 2000);
 
     client.onText = (text) => {
       console.log('Gemini text:', text);
@@ -161,11 +212,14 @@ async function startSession() {
     streamer = new AudioStreamer(audioContext);
     streamer.initialize();
 
-    // Track speaking state for pulse animation
+    // Track speaking state for pulse animation + latency display
     speakingCheckInterval = setInterval(() => {
       if (streamer && streamer.isSpeaking) {
         pulseRing.classList.add('active');
-        setStatus('speaking', 'Speaking…');
+        // Don't overwrite latency display
+        if (!statusText.textContent.includes('ms')) {
+          setStatus('speaking', 'Speaking…');
+        }
       } else {
         pulseRing.classList.remove('active');
         if (client && client.isConnected) {
@@ -176,17 +230,25 @@ async function startSession() {
 
     // 3. Camera
     camera = new CameraManager({
-      width: 640,
-      quality: 0.4,
+      width: 768,
+      quality: 0.6,
       facingMode: 'environment'
     });
     await camera.initialize(cameraPreview);
 
-    const fps = parseInt(fpsSelect.value) || 2;
+    const fps = FPS;
     cameraInterval = setInterval(() => {
       if (client && client.isConnected && camera && camera.isInitialized) {
         const frame = camera.capture();
+        if (!frame) return; // video not ready yet
         client.sendImage(frame);
+        lastFrameSentAt = Date.now();
+
+        // Don't auto-trigger on startup — let user tap or speak first
+        if (!greetingSent) {
+          greetingSent = true;
+          setStatus('connected', 'Tap screen or speak');
+        }
       }
     }, 1000 / fps);
 
@@ -205,10 +267,12 @@ async function startSession() {
     setupScreen.classList.add('hidden');
     sessionScreen.classList.remove('hidden');
 
+    // No fullscreen API — causes layout issues on some Android devices
+
   } catch (err) {
     showError('Failed to start: ' + err.message);
     startBtn.disabled = false;
-    startBtn.textContent = 'Start VisionGuide';
+    startBtn.textContent = 'Start';
     setStatus('error', 'Error');
   }
 }
@@ -217,6 +281,7 @@ async function startSession() {
 function stopSession() {
   if (cameraInterval) { clearInterval(cameraInterval); cameraInterval = null; }
   if (speakingCheckInterval) { clearInterval(speakingCheckInterval); speakingCheckInterval = null; }
+  if (nudgeInterval) { clearInterval(nudgeInterval); nudgeInterval = null; }
   if (recorder) { recorder.stop(); recorder = null; }
   if (streamer) { streamer.stop(); streamer = null; }
   if (camera) { camera.dispose(); camera = null; }
@@ -228,13 +293,24 @@ function stopSession() {
   sessionScreen.classList.add('hidden');
   setupScreen.classList.remove('hidden');
   startBtn.disabled = false;
-  startBtn.textContent = 'Start VisionGuide';
+  startBtn.textContent = 'Start Opalite';
   setStatus('disconnected', 'Disconnected');
 }
 
 // ── Event Listeners ────────────────────────────────────────────
 startBtn.addEventListener('click', startSession);
-stopBtn.addEventListener('click', stopSession);
+
+// End button → show confirmation modal
+stopBtn.addEventListener('click', () => {
+  document.getElementById('exit-modal').classList.remove('hidden');
+});
+document.getElementById('exit-cancel').addEventListener('click', () => {
+  document.getElementById('exit-modal').classList.add('hidden');
+});
+document.getElementById('exit-confirm').addEventListener('click', () => {
+  document.getElementById('exit-modal').classList.add('hidden');
+  stopSession();
+});
 
 micBtn.addEventListener('click', () => {
   if (!recorder) return;
@@ -245,11 +321,24 @@ micBtn.addEventListener('click', () => {
   vibrate(50);
 });
 
+// Tap = capture fresh frame + send with text in one turn.
+// This forces the model to look at THIS specific image.
+document.getElementById('tap-zone').addEventListener('click', (e) => {
+  e.preventDefault();
+  if (!client || !client.isConnected) return;
+  if (!camera || !camera.isInitialized) return;
+  vibrate([50, 30, 50]);
+  const frame = camera.capture();
+  if (frame) {
+    client.sendImageWithText(frame, 'Describe this image.');
+  }
+});
+
 switchCamBtn.addEventListener('click', async () => {
   if (!camera) return;
   if (cameraInterval) { clearInterval(cameraInterval); cameraInterval = null; }
   await camera.switchCamera(cameraPreview);
-  const fps = parseInt(fpsSelect.value) || 2;
+  const fps = FPS;
   cameraInterval = setInterval(() => {
     if (client && client.isConnected && camera && camera.isInitialized) {
       client.sendImage(camera.capture());
@@ -258,9 +347,9 @@ switchCamBtn.addEventListener('click', async () => {
   vibrate(50);
 });
 
-// Restore saved API key
-const savedKey = localStorage.getItem('vg_apiKey');
-if (savedKey) apiKeyInput.value = savedKey;
+// Restore saved API key (config.local.js > localStorage)
+const savedKey = window.OPALITE_API_KEY || localStorage.getItem('oe_apiKey');
+if (savedKey && savedKey !== 'PASTE_YOUR_KEY_HERE') apiKeyInput.value = savedKey;
 
 // Re-acquire wake lock on visibility change
 document.addEventListener('visibilitychange', () => {

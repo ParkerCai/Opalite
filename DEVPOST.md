@@ -1,4 +1,4 @@
-# VisionGuide — Devpost Submission
+# Opalite — Devpost Submission
 
 ## Inspiration
 
@@ -10,7 +10,7 @@ The Gemini Live API made this possible for the first time: real-time vision AND 
 
 ## What It Does
 
-VisionGuide turns any smartphone into a real-time AI vision assistant:
+Opalite turns any smartphone into a real-time AI vision assistant:
 
 - **Sees through your camera** — captures frames from the rear camera at 2-5 FPS and sends them to Gemini
 - **Speaks what it sees** — "Door ahead, 10 feet. Steps going down, 3 steps. Sign reads Emergency Exit."
@@ -54,7 +54,7 @@ The entire frontend is ~25KB of code. No backend server needed — the browser c
 ## Accomplishments We're Proud Of
 
 - **Zero-dependency architecture** — the entire app is vanilla JS that runs from a static file server. No build step, no framework, no node_modules. Judges can test it in 30 seconds.
-- **It actually works in real-time** — walking around with VisionGuide describing the world is genuinely useful and a little magical.
+- **It actually works in real-time** — walking around with Opalite describing the world is genuinely useful and a little magical.
 - **Truly hands-free** — once started, the user never needs to touch the screen again. Wake lock, auto-mute detection, and proactive descriptions handle everything.
 
 ## What We Learned
