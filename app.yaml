@@ -1,0 +1,26 @@
+# Google App Engine deployment config
+runtime: nodejs20
+
+# Static file serving
+handlers:
+- url: /(.*\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))
+  static_files: \1
+  upload: .*\.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$
+  secure: always
+  http_headers:
+    Cache-Control: "public, max-age=31536000"
+
+- url: /.*
+  static_files: index.html
+  upload: index.html
+  secure: always
+  http_headers:
+    X-Frame-Options: DENY
+    X-Content-Type-Options: nosniff
+    X-XSS-Protection: "1; mode=block"
+    Strict-Transport-Security: "max-age=31536000; includeSubDomains"
+
+# Basic scaling
+automatic_scaling:
+  min_instances: 0
+  max_instances: 10
