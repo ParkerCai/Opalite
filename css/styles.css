@@ -199,13 +199,12 @@ html, body {
 .status-bar {
   position: absolute;
   top: 0; left: 0; right: 0;
-  height: 56px;
   z-index: 10;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
-  padding-top: env(safe-area-inset-top);
+  padding: 12px 20px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
   background: var(--bg);
 }
 
