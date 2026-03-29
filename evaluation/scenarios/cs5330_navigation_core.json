@@ -1,0 +1,74 @@
+[
+  {
+    "id": "hallway-clear",
+    "task": "indoor_navigation",
+    "description": "Straight academic hallway with classroom doors and no immediate hazards.",
+    "expected": {
+      "hazards": [],
+      "objects": ["door"],
+      "directions": ["ahead", "right"],
+      "textKeywords": [],
+      "sceneLabels": ["hallway", "corridor"]
+    }
+  },
+  {
+    "id": "stairs-down",
+    "task": "hazard_detection",
+    "description": "Indoor staircase descending, with handrail on the right.",
+    "expected": {
+      "hazards": ["stairs", "drop"],
+      "objects": ["handrail"],
+      "directions": ["ahead", "right"],
+      "textKeywords": [],
+      "sceneLabels": ["staircase", "hallway"]
+    }
+  },
+  {
+    "id": "crosswalk-traffic",
+    "task": "outdoor_navigation",
+    "description": "Campus crosswalk with an approaching car from the left.",
+    "expected": {
+      "hazards": ["car", "traffic"],
+      "objects": ["crosswalk"],
+      "directions": ["left"],
+      "textKeywords": [],
+      "sceneLabels": ["street", "sidewalk", "campus"]
+    }
+  },
+  {
+    "id": "exit-sign",
+    "task": "ocr_navigation",
+    "description": "Exit sign above a door in a building corridor.",
+    "expected": {
+      "hazards": [],
+      "objects": ["door", "sign"],
+      "directions": ["ahead"],
+      "textKeywords": ["exit"],
+      "sceneLabels": ["hallway", "corridor"]
+    }
+  },
+  {
+    "id": "crowded-sidewalk",
+    "task": "dynamic_obstacles",
+    "description": "Busy sidewalk with a person, stroller, and bench narrowing the path.",
+    "expected": {
+      "hazards": ["person", "stroller", "obstacle"],
+      "objects": ["bench"],
+      "directions": ["left", "right"],
+      "textKeywords": [],
+      "sceneLabels": ["sidewalk", "street", "campus"]
+    }
+  },
+  {
+    "id": "cafeteria-menu",
+    "task": "daily_living",
+    "description": "Campus cafe counter with menu board showing coffee prices.",
+    "expected": {
+      "hazards": [],
+      "objects": ["menu", "counter"],
+      "directions": [],
+      "textKeywords": ["coffee", "tea", "3", "4"],
+      "sceneLabels": ["cafeteria", "restaurant", "indoor"]
+    }
+  }
+]

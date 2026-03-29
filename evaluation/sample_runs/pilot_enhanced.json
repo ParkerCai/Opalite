@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "runName": "pilot_enhanced",
+    "model": "gemini-2.5-flash-native-audio-latest + CV priors",
+    "notes": "Illustrative pilot with Places365, Monodepth2, and RetinaNet priors injected as context notes.",
+    "source": "manual transcript annotation"
+  },
+  "results": [
+    {
+      "scenarioId": "hallway-clear",
+      "responseText": "Hallway ahead. Door on the right, clear path.",
+      "sceneLabels": ["hallway", "corridor"],
+      "hazards": [],
+      "objects": ["door"],
+      "directions": ["ahead", "right"],
+      "textKeywords": [],
+      "latencyMs": 1360
+    },
+    {
+      "scenarioId": "stairs-down",
+      "responseText": "Stairs ahead. Handrail on your right.",
+      "sceneLabels": ["staircase", "hallway"],
+      "hazards": ["stairs", "drop"],
+      "objects": ["handrail"],
+      "directions": ["ahead", "right"],
+      "textKeywords": [],
+      "latencyMs": 1480
+    },
+    {
+      "scenarioId": "crosswalk-traffic",
+      "responseText": "Crosswalk ahead. Car coming from the left, wait.",
+      "sceneLabels": ["street", "campus"],
+      "hazards": ["car", "traffic"],
+      "objects": ["crosswalk"],
+      "directions": ["left"],
+      "textKeywords": [],
+      "latencyMs": 1660
+    },
+    {
+      "scenarioId": "exit-sign",
+      "responseText": "Exit sign ahead above the door.",
+      "sceneLabels": ["corridor", "hallway"],
+      "hazards": [],
+      "objects": ["door", "sign"],
+      "directions": ["ahead"],
+      "textKeywords": ["exit"],
+      "latencyMs": 1380
+    },
+    {
+      "scenarioId": "crowded-sidewalk",
+      "responseText": "Person and stroller ahead, bench on the right. Move left.",
+      "sceneLabels": ["sidewalk", "campus"],
+      "hazards": ["person", "stroller", "obstacle"],
+      "objects": ["bench"],
+      "directions": ["left"],
+      "textKeywords": [],
+      "latencyMs": 1720
+    },
+    {
+      "scenarioId": "cafeteria-menu",
+      "responseText": "Cafe counter ahead. Coffee three dollars, tea four.",
+      "sceneLabels": ["cafeteria", "indoor"],
+      "hazards": [],
+      "objects": ["menu", "counter"],
+      "directions": [],
+      "textKeywords": ["coffee", "tea", "3", "4"],
+      "latencyMs": 1550
+    }
+  ]
+}

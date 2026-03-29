@@ -1,0 +1,70 @@
+{
+  "meta": {
+    "runName": "pilot_baseline",
+    "model": "gemini-2.5-flash-native-audio-latest",
+    "notes": "Illustrative pilot using the baseline Live API prompt, before CV prior modules are enabled.",
+    "source": "manual transcript annotation"
+  },
+  "results": [
+    {
+      "scenarioId": "hallway-clear",
+      "responseText": "Clear hallway ahead. Door on the right.",
+      "sceneLabels": ["hallway"],
+      "hazards": [],
+      "objects": ["door"],
+      "directions": ["ahead", "right"],
+      "textKeywords": [],
+      "latencyMs": 1240
+    },
+    {
+      "scenarioId": "stairs-down",
+      "responseText": "Careful, stairs ahead.",
+      "sceneLabels": ["hallway"],
+      "hazards": ["stairs"],
+      "objects": [],
+      "directions": ["ahead"],
+      "textKeywords": [],
+      "latencyMs": 1410
+    },
+    {
+      "scenarioId": "crosswalk-traffic",
+      "responseText": "Car coming from the left. Wait.",
+      "sceneLabels": ["street"],
+      "hazards": ["car"],
+      "objects": [],
+      "directions": ["left"],
+      "textKeywords": [],
+      "latencyMs": 1580
+    },
+    {
+      "scenarioId": "exit-sign",
+      "responseText": "Door ahead. Sign says exit.",
+      "sceneLabels": ["corridor"],
+      "hazards": [],
+      "objects": ["door", "sign"],
+      "directions": ["ahead"],
+      "textKeywords": ["exit"],
+      "latencyMs": 1320
+    },
+    {
+      "scenarioId": "crowded-sidewalk",
+      "responseText": "People ahead. Path is tight.",
+      "sceneLabels": ["sidewalk"],
+      "hazards": ["person"],
+      "objects": [],
+      "directions": [],
+      "textKeywords": [],
+      "latencyMs": 1650
+    },
+    {
+      "scenarioId": "cafeteria-menu",
+      "responseText": "Menu above the counter. Coffee, three dollars.",
+      "sceneLabels": ["cafeteria"],
+      "hazards": [],
+      "objects": ["menu"],
+      "directions": [],
+      "textKeywords": ["coffee", "3"],
+      "latencyMs": 1490
+    }
+  ]
+}

@@ -1,11 +1,14 @@
 /**
  * Opalite — Main application orchestrator.
- * Connects camera, microphone, and Gemini Live API together.
+ * Connects camera, microphone, Gemini Live API, optional CV priors,
+ * and lightweight session logging for evaluation.
  */
 import { GeminiClient } from './gemini-client.js';
 import { AudioRecorder } from './audio-recorder.js';
 import { AudioStreamer } from './audio-streamer.js';
 import { CameraManager } from './camera.js';
+import { CVEnhancementPipeline } from './cv/enhancement-pipeline.js';
+import { SessionLogger } from './evaluation/session-logger.js';
 
 // ── System Prompt ──────────────────────────────────────────────
 const SYSTEM_PROMPT = `You are a navigation assistant. A user is walking and you see through their phone camera. Help them move safely.
@@ -18,6 +21,10 @@ Good answers: "Clear path ahead." "Door on your left." "Sign says Exit." "Bench 
 Bad answers: "I can see a beautiful pathway stretching ahead with trees on both sides." Too long, too descriptive.
 
 Never describe colors, textures, materials, or aesthetics. Never say "I can see" or "it appears." Just state facts. Never mention the phone or camera.`;
+
+const FPS = 1; // Fixed at 1 FPS per Google's recommendation
+const CV_CONFIG = window.OPALITE_CV || { enabled: false };
+const EVAL_CONFIG = window.OPALITE_EVAL || { enabled: true };
 
 // ── Gemini Config ──────────────────────────────────────────────
 function getConfig() {
@@ -58,7 +65,6 @@ const cameraPreview = document.getElementById('camera-preview');
 const pulseRing = document.getElementById('pulse-ring');
 const errorBanner = document.getElementById('error-banner');
 const errorText = document.getElementById('error-text');
-const FPS = 1; // Fixed at 1 FPS per Google's recommendation
 
 // ── App State ──────────────────────────────────────────────────
 let client = null;
@@ -69,23 +75,33 @@ let audioContext = null;
 let cameraInterval = null;
 let wakeLock = null;
 let speakingCheckInterval = null;
-let nudgeInterval = null;
 let lastAISpokeAt = 0;
 let lastFrameSentAt = 0;
+let enhancementPipeline = null;
+let latestCVAnalysis = null;
+let lastCVContextAt = 0;
+let logger = null;
+let lastStatusSignature = '';
 
 // ── Helpers ────────────────────────────────────────────────────
 function setStatus(state, text) {
   statusDot.className = 'status-dot ' + state;
   statusText.textContent = text;
-  // Announce to TalkBack/screen readers via aria-live region
   const announce = document.getElementById('a11y-announce');
   if (announce) announce.textContent = text;
+
+  const signature = `${state}:${text}`;
+  if (signature !== lastStatusSignature) {
+    lastStatusSignature = signature;
+    logger?.log('status', { state, text });
+  }
 }
 
 function showError(msg) {
   errorText.textContent = msg;
   errorBanner.classList.add('visible');
   setTimeout(() => errorBanner.classList.remove('visible'), 15000);
+  logger?.log('error', { message: msg });
 }
 
 function vibrate(pattern) {
@@ -105,6 +121,61 @@ function releaseWakeLock() {
   if (wakeLock) { wakeLock.release(); wakeLock = null; }
 }
 
+async function maybeRunCV(frame, source = 'stream') {
+  if (!enhancementPipeline?.shouldAnalyze()) return latestCVAnalysis;
+
+  const previousSummary = latestCVAnalysis?.summaryText || '';
+
+  try {
+    const analysis = await enhancementPipeline.analyze(frame);
+    if (!analysis) return latestCVAnalysis;
+
+    latestCVAnalysis = analysis;
+    logger?.log('cv_analysis', {
+      source,
+      summaryText: analysis.summaryText,
+      scene: analysis.scene?.scene || null,
+      obstacleRisk: analysis.depth?.obstacleRisk || null,
+      detections: analysis.detections?.labels || []
+    });
+
+    if (analysis.depth?.obstacleRisk === 'high') {
+      vibrate([120, 60, 120, 60, 120]);
+    }
+
+    const hasNewSummary = analysis.summaryText && analysis.summaryText !== previousSummary;
+    const enoughTimePassed = Date.now() - lastCVContextAt > 4000;
+    if (client?.isConnected && CV_CONFIG.sendContextNotes !== false && hasNewSummary && enoughTimePassed) {
+      client.sendText(`Navigation priors: ${analysis.summaryText}`, false);
+      lastCVContextAt = Date.now();
+      logger?.log('cv_context_note', { text: analysis.summaryText });
+    }
+
+    return analysis;
+  } catch (error) {
+    console.warn('CV enhancement pipeline failed', error);
+    logger?.log('cv_error', { source, message: error.message });
+    return latestCVAnalysis;
+  }
+}
+
+function buildTapPrompt() {
+  const basePrompt = 'Describe this image for safe navigation. Mention obstacles, text, and the safest direction in one or two short sentences.';
+  if (!enhancementPipeline?.isEnabled) return basePrompt;
+  return enhancementPipeline.buildPrompt(basePrompt, latestCVAnalysis);
+}
+
+function handleHazardText(text) {
+  const lower = text.toLowerCase();
+  const hazardWords = [
+    'careful', 'watch out', 'hazard', 'stairs', 'step', 'curb', 'obstacle',
+    'traffic', 'car', 'vehicle', 'hole', 'wet', 'drop', 'edge', 'stop'
+  ];
+  if (hazardWords.some((word) => lower.includes(word))) {
+    vibrate([100, 50, 100, 50, 100]);
+  }
+}
+
 // ── Start Session ──────────────────────────────────────────────
 async function startSession() {
   const apiKey = apiKeyInput.value.trim();
@@ -114,25 +185,27 @@ async function startSession() {
   }
   localStorage.setItem('oe_apiKey', apiKey);
 
+  logger = new SessionLogger(EVAL_CONFIG);
+  enhancementPipeline = new CVEnhancementPipeline(CV_CONFIG);
+  latestCVAnalysis = null;
+  lastCVContextAt = 0;
+
   startBtn.disabled = true;
   startBtn.textContent = 'Connecting…';
   setStatus('connecting', 'Connecting…');
 
   try {
-    // 1. Connect to Gemini
     client = new GeminiClient(apiKey, getConfig());
 
     client.onSetupComplete = () => {
-      setStatus('connected', 'Connected — starting camera…');
+      setStatus('connected', 'Connected, starting camera…');
       vibrate(200);
-      // Don't send any text yet — wait for camera frames to arrive first
-      // The AI will start describing once it receives real frames
+      logger?.log('setup_complete');
     };
 
-    // Flag to send greeting after first frame
     let greetingSent = false;
-
     let firstAudioChunk = true;
+
     client.onAudio = (bytes) => {
       if (!streamer) return;
       if (!streamer.isInitialized) {
@@ -145,35 +218,27 @@ async function startSession() {
       streamer.streamAudio(bytes);
       lastAISpokeAt = Date.now();
       setStatus('speaking', 'Speaking…');
+      logger?.markAudioChunk(bytes.length);
     };
 
-    // Hazard detection: when AI sends text containing hazard words, vibrate strongly
     client.onText = (text) => {
-      const lower = text.toLowerCase();
-      const hazardWords = ['careful', 'watch out', 'hazard', 'stairs', 'step', 'curb',
-        'obstacle', 'traffic', 'car', 'vehicle', 'hole', 'wet', 'drop', 'edge', 'stop'];
-      if (hazardWords.some(w => lower.includes(w))) {
-        vibrate([100, 50, 100, 50, 100]); // strong triple-pulse for hazard
-      }
+      console.log('Gemini text:', text);
+      handleHazardText(text);
+      logger?.markAIText(text);
     };
 
     client.onTurnComplete = () => {
       firstAudioChunk = true;
       setStatus('connected', 'Listening…');
-    };
-
-    // No auto-narration — only respond when user speaks or taps
-
-    client.onText = (text) => {
-      console.log('Gemini text:', text);
+      logger?.log('turn_complete');
     };
 
     client.onInterrupted = () => {
-      if (streamer) { streamer.stop(); streamer.isInitialized = false; }
-    };
-
-    client.onTurnComplete = () => {
-      setStatus('connected', 'Listening…');
+      if (streamer) {
+        streamer.stop();
+        streamer.isInitialized = false;
+      }
+      logger?.log('interrupted');
     };
 
     client.onError = (msg) => {
@@ -183,19 +248,14 @@ async function startSession() {
 
     await client.connect();
 
-    // 2. Audio context + streamer
     audioContext = new AudioContext();
     streamer = new AudioStreamer(audioContext);
     streamer.initialize();
 
-    // Track speaking state for pulse animation + latency display
     speakingCheckInterval = setInterval(() => {
       if (streamer && streamer.isSpeaking) {
         pulseRing.classList.add('active');
-        // Don't overwrite latency display
-        if (!statusText.textContent.includes('ms')) {
-          setStatus('speaking', 'Speaking…');
-        }
+        setStatus('speaking', 'Speaking…');
       } else {
         pulseRing.classList.remove('active');
         if (client && client.isConnected) {
@@ -204,7 +264,6 @@ async function startSession() {
       }
     }, 150);
 
-    // 3. Camera
     camera = new CameraManager({
       width: 768,
       quality: 0.6,
@@ -212,39 +271,37 @@ async function startSession() {
     });
     await camera.initialize(cameraPreview);
 
-    const fps = FPS;
     cameraInterval = setInterval(() => {
-      if (client && client.isConnected && camera && camera.isInitialized) {
-        const frame = camera.capture();
-        if (!frame) return; // video not ready yet
-        client.sendImage(frame);
-        lastFrameSentAt = Date.now();
+      if (!client?.isConnected || !camera?.isInitialized) return;
+      const frame = camera.capture();
+      if (!frame) return;
 
-        // Don't auto-trigger on startup — let user tap or speak first
-        if (!greetingSent) {
-          greetingSent = true;
-          setStatus('connected', 'Tap screen or speak');
-        }
+      client.sendImage(frame);
+      lastFrameSentAt = Date.now();
+      logger?.markFrameSent({ mode: 'stream' });
+      maybeRunCV(frame, 'stream');
+
+      if (!greetingSent) {
+        greetingSent = true;
+        setStatus('connected', 'Tap screen or speak');
       }
-    }, 1000 / fps);
+    }, 1000 / FPS);
 
-    // 4. Microphone
     recorder = new AudioRecorder();
     await recorder.start((base64audio) => {
-      if (client && client.isConnected) {
+      if (client?.isConnected) {
         client.sendAudio(base64audio);
       }
     });
 
-    // 5. Wake lock
     await acquireWakeLock();
 
-    // Show session screen
     setupScreen.classList.add('hidden');
     sessionScreen.classList.remove('hidden');
-
-    // No fullscreen API — causes layout issues on some Android devices
-
+    logger?.log('session_started', {
+      cvEnhancements: enhancementPipeline?.isEnabled || false,
+      fps: FPS
+    });
   } catch (err) {
     showError('Failed to start: ' + err.message);
     startBtn.disabled = false;
@@ -257,12 +314,14 @@ async function startSession() {
 function stopSession() {
   if (cameraInterval) { clearInterval(cameraInterval); cameraInterval = null; }
   if (speakingCheckInterval) { clearInterval(speakingCheckInterval); speakingCheckInterval = null; }
-  if (nudgeInterval) { clearInterval(nudgeInterval); nudgeInterval = null; }
   if (recorder) { recorder.stop(); recorder = null; }
   if (streamer) { streamer.stop(); streamer = null; }
   if (camera) { camera.dispose(); camera = null; }
   if (client) { client.disconnect(); client = null; }
   if (audioContext) { audioContext.close(); audioContext = null; }
+
+  enhancementPipeline = null;
+  latestCVAnalysis = null;
   releaseWakeLock();
   pulseRing.classList.remove('active');
 
@@ -271,12 +330,12 @@ function stopSession() {
   startBtn.disabled = false;
   startBtn.textContent = 'Start Opalite';
   setStatus('disconnected', 'Disconnected');
+  logger?.log('session_stopped');
 }
 
 // ── Event Listeners ────────────────────────────────────────────
 startBtn.addEventListener('click', startSession);
 
-// End button → show confirmation modal
 stopBtn.addEventListener('click', () => {
   document.getElementById('exit-modal').classList.remove('hidden');
 });
@@ -295,41 +354,45 @@ micBtn.addEventListener('click', () => {
   micBtn.querySelector('.btn-label').textContent = muted ? 'Unmute' : 'Mute';
   micBtn.setAttribute('aria-label', muted ? 'Unmute microphone' : 'Mute microphone');
   vibrate(50);
+  logger?.log('mic_toggle', { muted });
 });
 
-// Tap = capture fresh frame + send with text in one turn.
-// This forces the model to look at THIS specific image.
-document.getElementById('tap-zone').addEventListener('click', (e) => {
+document.getElementById('tap-zone').addEventListener('click', async (e) => {
   e.preventDefault();
-  if (!client || !client.isConnected) return;
-  if (!camera || !camera.isInitialized) return;
+  if (!client?.isConnected || !camera?.isInitialized) return;
+
   vibrate([50, 30, 50]);
   const frame = camera.capture();
-  if (frame) {
-    client.sendImageWithText(frame, 'Describe this image.');
-  }
+  if (!frame) return;
+
+  await maybeRunCV(frame, 'tap');
+  const prompt = buildTapPrompt();
+  client.sendImageWithText(frame, prompt);
+  logger?.markFrameSent({ mode: 'tap_describe' });
+  logger?.log('tap_describe', { prompt, cvSummary: latestCVAnalysis?.summaryText || null });
 });
 
 switchCamBtn.addEventListener('click', async () => {
   if (!camera) return;
   if (cameraInterval) { clearInterval(cameraInterval); cameraInterval = null; }
   await camera.switchCamera(cameraPreview);
-  const fps = FPS;
   cameraInterval = setInterval(() => {
-    if (client && client.isConnected && camera && camera.isInitialized) {
-      client.sendImage(camera.capture());
-    }
-  }, 1000 / fps);
+    if (!client?.isConnected || !camera?.isInitialized) return;
+    const frame = camera.capture();
+    if (!frame) return;
+    client.sendImage(frame);
+    logger?.markFrameSent({ mode: 'stream', switchedCamera: true });
+    maybeRunCV(frame, 'stream');
+  }, 1000 / FPS);
   vibrate(50);
+  logger?.log('camera_switch', { facingMode: camera.facingMode });
 });
 
-// Restore saved API key (config.local.js > localStorage)
 const savedKey = window.OPALITE_API_KEY || localStorage.getItem('oe_apiKey');
 if (savedKey && savedKey !== 'PASTE_YOUR_KEY_HERE') apiKeyInput.value = savedKey;
 
-// Re-acquire wake lock on visibility change
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && client && client.isConnected) {
+  if (document.visibilityState === 'visible' && client?.isConnected) {
     acquireWakeLock();
   }
 });
