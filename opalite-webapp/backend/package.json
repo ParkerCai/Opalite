@@ -1,0 +1,14 @@
+{
+  "name": "opalite-local-backend",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Minimal local WebSocket backend for the Opalite Local prototype",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  }
+}

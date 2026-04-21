@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/styles.css?v=36">
+  <link rel="stylesheet" href="css/styles.css?v=37">
 </head>
 <body>
 
@@ -23,24 +23,35 @@
       <h1 class="app-title">Opalite</h1>
       <p class="app-tagline">See through crafted light.</p>
 
-      <input type="hidden" id="api-key">
-      <script>
-        // Show API key input if no key saved
-        const k = window.OPALITE_API_KEY || localStorage.getItem('oe_apiKey');
-        if (!k || k === 'PASTE_YOUR_KEY_HERE') {
-          const inp = document.getElementById('api-key');
-          inp.type = 'password';
-          inp.placeholder = 'Paste your Gemini API key';
-          inp.style.cssText = 'width:100%;padding:16px;background:#1a1a1a;border:2px solid #333;border-radius:12px;color:#fff;font-size:18px;margin-bottom:20px;';
-        }
-      </script>
+      <div class="input-group">
+        <label for="mode-select">Mode</label>
+        <select id="mode-select" aria-label="Choose Opalite mode">
+          <option value="gemini">Gemini Live</option>
+          <option value="local">Opalite Local (prototype)</option>
+        </select>
+      </div>
+
+      <div id="api-key-group" class="input-group">
+        <label for="api-key">Gemini API key</label>
+        <input id="api-key" type="password" placeholder="Paste your Gemini API key" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+
+      <div id="local-endpoint-group" class="input-group hidden">
+        <label for="local-endpoint">Local backend WebSocket</label>
+        <input id="local-endpoint" type="text" placeholder="ws://localhost:8787/ws" autocomplete="off" autocapitalize="off" spellcheck="false">
+      </div>
+
+      <p id="mode-hint" class="setup-note">
+        Gemini Live streams directly from the browser to Google's Live API.
+      </p>
 
       <button id="start-btn" class="start-btn" aria-label="Start">
-        Start
+        Start with Gemini
       </button>
 
       <div class="setup-footer">
-        Powered by Gemini Live API
+        <div id="setup-provider-label">Powered by Gemini Live API</div>
+        <div class="setup-footer-subtle">Local mode keeps the current frontend and swaps in a local WebSocket backend.</div>
       </div>
     </div>
   </div>

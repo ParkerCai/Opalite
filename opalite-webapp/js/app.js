@@ -1,9 +1,10 @@
 /**
  * Opalite — Main application orchestrator.
  * Connects camera, microphone, Gemini Live API, optional CV priors,
- * and lightweight session logging for evaluation.
+ * local backend mode, and lightweight session logging for evaluation.
  */
 import { GeminiClient } from './gemini-client.js';
+import { LocalClient } from './local-client.js';
 import { AudioRecorder } from './audio-recorder.js';
 import { AudioStreamer } from './audio-streamer.js';
 import { CameraManager } from './camera.js';
@@ -25,9 +26,10 @@ Never describe colors, textures, materials, or aesthetics. Never say "I can see"
 const FPS = 1; // Fixed at 1 FPS per Google's recommendation
 const CV_CONFIG = window.OPALITE_CV || { enabled: false };
 const EVAL_CONFIG = window.OPALITE_EVAL || { enabled: true };
+const LOCAL_CONFIG = window.OPALITE_LOCAL || {};
 
 // ── Gemini Config ──────────────────────────────────────────────
-function getConfig() {
+function getGeminiConfig() {
   return {
     model: 'models/gemini-2.5-flash-native-audio-latest',
     generationConfig: {
@@ -51,10 +53,57 @@ function getConfig() {
   };
 }
 
+function buildDefaultLocalWsUrl() {
+  const configuredUrl = LOCAL_CONFIG.wsUrl;
+  if (configuredUrl) {
+    if (configuredUrl.startsWith('ws://') || configuredUrl.startsWith('wss://')) {
+      return configuredUrl;
+    }
+    if (configuredUrl.startsWith('/')) {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${protocol}//${window.location.host}${configuredUrl}`;
+    }
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  if (!window.location.host) {
+    return 'ws://localhost:8787/ws';
+  }
+
+  if (!window.location.port || window.location.port === '8787') {
+    return `${protocol}//${window.location.host}/ws`;
+  }
+
+  return `${protocol}//${window.location.hostname}:8787/ws`;
+}
+
+function getSelectedMode() {
+  return modeSelect.value === 'local' ? 'local' : 'gemini';
+}
+
+function applyModeUI() {
+  const mode = getSelectedMode();
+  const isGemini = mode === 'gemini';
+
+  apiKeyGroup.classList.toggle('hidden', !isGemini);
+  localEndpointGroup.classList.toggle('hidden', isGemini);
+  startBtn.textContent = isGemini ? 'Start with Gemini' : 'Start Opalite Local';
+  setupProviderLabel.textContent = isGemini ? 'Powered by Gemini Live API' : 'Powered by Opalite Local backend';
+  modeHint.textContent = isGemini
+    ? 'Gemini Live streams directly from the browser to Google\'s Live API.'
+    : 'Local mode keeps the current frontend, streams frames and mic audio to a local WebSocket backend, and currently works best for tap-to-describe.';
+}
+
 // ── DOM Elements ───────────────────────────────────────────────
 const setupScreen = document.getElementById('setup-screen');
 const sessionScreen = document.getElementById('session-screen');
+const modeSelect = document.getElementById('mode-select');
+const apiKeyGroup = document.getElementById('api-key-group');
 const apiKeyInput = document.getElementById('api-key');
+const localEndpointGroup = document.getElementById('local-endpoint-group');
+const localEndpointInput = document.getElementById('local-endpoint');
+const modeHint = document.getElementById('mode-hint');
+const setupProviderLabel = document.getElementById('setup-provider-label');
 const startBtn = document.getElementById('start-btn');
 const stopBtn = document.getElementById('stop-btn');
 const micBtn = document.getElementById('mic-btn');
@@ -75,13 +124,14 @@ let audioContext = null;
 let cameraInterval = null;
 let wakeLock = null;
 let speakingCheckInterval = null;
-let lastAISpokeAt = 0;
 let lastFrameSentAt = 0;
 let enhancementPipeline = null;
 let latestCVAnalysis = null;
 let lastCVContextAt = 0;
 let logger = null;
 let lastStatusSignature = '';
+let currentMode = 'gemini';
+let currentLocalWsUrl = buildDefaultLocalWsUrl();
 
 // ── Helpers ────────────────────────────────────────────────────
 function setStatus(state, text) {
@@ -118,7 +168,10 @@ async function acquireWakeLock() {
 }
 
 function releaseWakeLock() {
-  if (wakeLock) { wakeLock.release(); wakeLock = null; }
+  if (wakeLock) {
+    wakeLock.release();
+    wakeLock = null;
+  }
 }
 
 async function maybeRunCV(frame, source = 'stream') {
@@ -176,14 +229,40 @@ function handleHazardText(text) {
   }
 }
 
+function createClient() {
+  if (currentMode === 'local') {
+    return new LocalClient({
+      wsUrl: currentLocalWsUrl,
+      systemPrompt: SYSTEM_PROMPT,
+      speechFallback: LOCAL_CONFIG.speechFallback !== false
+    });
+  }
+
+  return new GeminiClient(apiKeyInput.value.trim(), getGeminiConfig());
+}
+
+function getListeningStatusText() {
+  return currentMode === 'local' ? 'Tap to describe' : 'Listening…';
+}
+
 // ── Start Session ──────────────────────────────────────────────
 async function startSession() {
-  const apiKey = apiKeyInput.value.trim();
-  if (!apiKey) {
-    showError('Please enter your Gemini API key');
-    return;
+  currentMode = getSelectedMode();
+
+  if (currentMode === 'gemini') {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+      showError('Please enter your Gemini API key');
+      return;
+    }
+    localStorage.setItem('oe_apiKey', apiKey);
+  } else {
+    currentLocalWsUrl = localEndpointInput.value.trim() || buildDefaultLocalWsUrl();
+    localEndpointInput.value = currentLocalWsUrl;
+    localStorage.setItem('oe_localWsUrl', currentLocalWsUrl);
   }
-  localStorage.setItem('oe_apiKey', apiKey);
+
+  localStorage.setItem('oe_mode', currentMode);
 
   logger = new SessionLogger(EVAL_CONFIG);
   enhancementPipeline = new CVEnhancementPipeline(CV_CONFIG);
@@ -191,16 +270,20 @@ async function startSession() {
   lastCVContextAt = 0;
 
   startBtn.disabled = true;
-  startBtn.textContent = 'Connecting…';
-  setStatus('connecting', 'Connecting…');
+  startBtn.textContent = currentMode === 'gemini' ? 'Connecting…' : 'Starting local mode…';
+  setStatus('connecting', currentMode === 'gemini' ? 'Connecting…' : 'Connecting to local backend…');
 
   try {
-    client = new GeminiClient(apiKey, getConfig());
+    client = createClient();
 
     client.onSetupComplete = () => {
-      setStatus('connected', 'Connected, starting camera…');
+      setStatus('connected', currentMode === 'gemini' ? 'Connected, starting camera…' : 'Local backend ready, starting camera…');
       vibrate(200);
-      logger?.log('setup_complete');
+      logger?.log('setup_complete', {
+        mode: currentMode,
+        localWsUrl: currentMode === 'local' ? currentLocalWsUrl : null,
+        backendInfo: client?.backendInfo || null
+      });
     };
 
     let greetingSent = false;
@@ -216,20 +299,19 @@ async function startSession() {
         firstAudioChunk = false;
       }
       streamer.streamAudio(bytes);
-      lastAISpokeAt = Date.now();
       setStatus('speaking', 'Speaking…');
       logger?.markAudioChunk(bytes.length);
     };
 
     client.onText = (text) => {
-      console.log('Gemini text:', text);
+      console.log(`${currentMode} text:`, text);
       handleHazardText(text);
       logger?.markAIText(text);
     };
 
     client.onTurnComplete = () => {
       firstAudioChunk = true;
-      setStatus('connected', 'Listening…');
+      setStatus('connected', getListeningStatusText());
       logger?.log('turn_complete');
     };
 
@@ -253,13 +335,14 @@ async function startSession() {
     streamer.initialize();
 
     speakingCheckInterval = setInterval(() => {
-      if (streamer && streamer.isSpeaking) {
+      const isSpeaking = Boolean(streamer?.isSpeaking || client?.isSpeaking);
+      if (isSpeaking) {
         pulseRing.classList.add('active');
         setStatus('speaking', 'Speaking…');
       } else {
         pulseRing.classList.remove('active');
         if (client && client.isConnected) {
-          setStatus('connected', 'Listening…');
+          setStatus('connected', getListeningStatusText());
         }
       }
     }, 150);
@@ -278,12 +361,12 @@ async function startSession() {
 
       client.sendImage(frame);
       lastFrameSentAt = Date.now();
-      logger?.markFrameSent({ mode: 'stream' });
+      logger?.markFrameSent({ mode: 'stream', transport: currentMode });
       maybeRunCV(frame, 'stream');
 
       if (!greetingSent) {
         greetingSent = true;
-        setStatus('connected', 'Tap screen or speak');
+        setStatus('connected', getListeningStatusText());
       }
     }, 1000 / FPS);
 
@@ -299,26 +382,49 @@ async function startSession() {
     setupScreen.classList.add('hidden');
     sessionScreen.classList.remove('hidden');
     logger?.log('session_started', {
+      mode: currentMode,
+      localEndpoint: currentMode === 'local' ? currentLocalWsUrl : null,
       cvEnhancements: enhancementPipeline?.isEnabled || false,
       fps: FPS
     });
   } catch (err) {
     showError('Failed to start: ' + err.message);
     startBtn.disabled = false;
-    startBtn.textContent = 'Start';
+    applyModeUI();
     setStatus('error', 'Error');
   }
 }
 
 // ── Stop Session ───────────────────────────────────────────────
 function stopSession() {
-  if (cameraInterval) { clearInterval(cameraInterval); cameraInterval = null; }
-  if (speakingCheckInterval) { clearInterval(speakingCheckInterval); speakingCheckInterval = null; }
-  if (recorder) { recorder.stop(); recorder = null; }
-  if (streamer) { streamer.stop(); streamer = null; }
-  if (camera) { camera.dispose(); camera = null; }
-  if (client) { client.disconnect(); client = null; }
-  if (audioContext) { audioContext.close(); audioContext = null; }
+  if (cameraInterval) {
+    clearInterval(cameraInterval);
+    cameraInterval = null;
+  }
+  if (speakingCheckInterval) {
+    clearInterval(speakingCheckInterval);
+    speakingCheckInterval = null;
+  }
+  if (recorder) {
+    recorder.stop();
+    recorder = null;
+  }
+  if (streamer) {
+    streamer.stop();
+    streamer = null;
+  }
+  if (camera) {
+    camera.dispose();
+    camera = null;
+  }
+  if (client) {
+    client.disconnect();
+    client = null;
+  }
+  if (audioContext) {
+    audioContext.close();
+    audioContext = null;
+  }
 
   enhancementPipeline = null;
   latestCVAnalysis = null;
@@ -328,13 +434,16 @@ function stopSession() {
   sessionScreen.classList.add('hidden');
   setupScreen.classList.remove('hidden');
   startBtn.disabled = false;
-  startBtn.textContent = 'Start Opalite';
+  applyModeUI();
   setStatus('disconnected', 'Disconnected');
   logger?.log('session_stopped');
 }
 
 // ── Event Listeners ────────────────────────────────────────────
 startBtn.addEventListener('click', startSession);
+modeSelect.addEventListener('change', () => {
+  applyModeUI();
+});
 
 stopBtn.addEventListener('click', () => {
   document.getElementById('exit-modal').classList.remove('hidden');
@@ -368,20 +477,23 @@ document.getElementById('tap-zone').addEventListener('click', async (e) => {
   await maybeRunCV(frame, 'tap');
   const prompt = buildTapPrompt();
   client.sendImageWithText(frame, prompt);
-  logger?.markFrameSent({ mode: 'tap_describe' });
+  logger?.markFrameSent({ mode: 'tap_describe', transport: currentMode });
   logger?.log('tap_describe', { prompt, cvSummary: latestCVAnalysis?.summaryText || null });
 });
 
 switchCamBtn.addEventListener('click', async () => {
   if (!camera) return;
-  if (cameraInterval) { clearInterval(cameraInterval); cameraInterval = null; }
+  if (cameraInterval) {
+    clearInterval(cameraInterval);
+    cameraInterval = null;
+  }
   await camera.switchCamera(cameraPreview);
   cameraInterval = setInterval(() => {
     if (!client?.isConnected || !camera?.isInitialized) return;
     const frame = camera.capture();
     if (!frame) return;
     client.sendImage(frame);
-    logger?.markFrameSent({ mode: 'stream', switchedCamera: true });
+    logger?.markFrameSent({ mode: 'stream', switchedCamera: true, transport: currentMode });
     maybeRunCV(frame, 'stream');
   }, 1000 / FPS);
   vibrate(50);
@@ -389,7 +501,19 @@ switchCamBtn.addEventListener('click', async () => {
 });
 
 const savedKey = window.OPALITE_API_KEY || localStorage.getItem('oe_apiKey');
-if (savedKey && savedKey !== 'PASTE_YOUR_KEY_HERE') apiKeyInput.value = savedKey;
+if (savedKey && savedKey !== 'PASTE_YOUR_KEY_HERE') {
+  apiKeyInput.value = savedKey;
+}
+
+const savedMode = localStorage.getItem('oe_mode') || LOCAL_CONFIG.preferredMode || 'gemini';
+modeSelect.value = savedMode === 'local' ? 'local' : 'gemini';
+currentMode = getSelectedMode();
+
+const savedLocalWsUrl = localStorage.getItem('oe_localWsUrl') || buildDefaultLocalWsUrl();
+localEndpointInput.value = savedLocalWsUrl;
+currentLocalWsUrl = savedLocalWsUrl;
+
+applyModeUI();
 
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && client?.isConnected) {

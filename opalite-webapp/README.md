@@ -2,7 +2,9 @@
 
 **Real-time AI vision assistant for blind and low-vision users.**
 
-Opalite uses the Gemini Live API to see through your phone's camera and describe the world around you — obstacles, signs, people, navigation cues — all through natural voice, hands-free.
+Opalite uses the Gemini Live API to see through your phone's camera and describe the world around you, obstacles, signs, people, navigation cues, all through natural voice, hands-free.
+
+It now also includes an **Opalite Local** prototype path that keeps the same browser UI but swaps in a local WebSocket backend inspired by Parlor.
 
 > Built for the [Gemini Live Agent Challenge](https://geminiliveagentchallenge.devpost.com/) hackathon.
 
@@ -11,7 +13,8 @@ Opalite uses the Gemini Live API to see through your phone's camera and describe
 ## How It Works
 
 ```
-Phone Camera → WebSocket → Gemini Live API → Audio Response → Speaker/Earbuds
+Gemini mode: Phone Camera → WebSocket → Gemini Live API → Audio Response → Speaker/Earbuds
+Local mode:  Phone Camera + Mic → WebSocket → Opalite Local backend → local model adapter → spoken/text response
 ```
 
 One model. One API call. No separate OCR, no separate TTS, no separate STT. Gemini Live handles vision + voice together in real-time.
@@ -27,9 +30,10 @@ One model. One API call. No separate OCR, no separate TTS, no separate STT. Gemi
 
 ### Prerequisites
 - A modern browser (Chrome, Safari, Edge) with camera + mic access
-- A [Gemini API key](https://aistudio.google.com/apikey) (free tier works)
+- A [Gemini API key](https://aistudio.google.com/apikey) (free tier works) for Gemini mode
+- Node.js 22+ for the Opalite Local backend
 
-### Run Locally
+### Run Gemini mode locally
 
 ```bash
 git clone https://github.com/ParkerCai/vision-guide.git
@@ -58,6 +62,18 @@ srv.serve_forever()
 
 Then open `https://<your-ip>:8443` on your phone and accept the certificate warning.
 
+### Run the Opalite Local prototype
+
+```bash
+cd /home/username/opalite/backend
+npm install
+npm start
+```
+
+Then open `http://localhost:8787`, switch the setup screen to **Opalite Local (prototype)**, and tap the camera view to request a description.
+
+For the fuller local-mode notes, see [`docs/LOCAL_MODE.md`](docs/LOCAL_MODE.md).
+
 ### Deploy to Google Cloud
 
 ```bash
@@ -69,6 +85,21 @@ gcloud run deploy vision-guide \
 ```
 
 Or upload to a GCS bucket with static website hosting enabled.
+
+## Modes
+
+### Gemini Live
+
+- Existing direct browser → Gemini Live path remains intact
+- Best current option for full voice interaction
+
+### Opalite Local prototype
+
+- Adds a local backend in `backend/`
+- Streams camera frames and mic audio over WebSocket
+- Prefers a real local multimodal adapter when available
+- Falls back to a connectivity-only local response when no model is installed
+- Uses browser speech synthesis as the current audio fallback for local mode
 
 ## Architecture
 
@@ -107,13 +138,13 @@ Or upload to a GCS bucket with static website hosting enabled.
 | Component | Technology |
 |-----------|-----------|
 | Frontend | Vanilla JavaScript (ES modules, no build step) |
-| AI Model | Gemini 2.0 Flash (Live API) |
+| AI Model | Gemini Live or local backend adapter |
 | Audio I/O | Web Audio API + AudioWorklet |
 | Camera | getUserMedia API |
 | Transport | WebSocket (bidirectional streaming) |
-| Hosting | Any static file server / Google Cloud Run |
+| Hosting | Static file server, bundled local backend, or Google Cloud Run |
 
-**Zero dependencies.** No npm, no React, no build step. Just open `index.html`.
+**Frontend remains build-step free.** Local mode adds a small Node backend in `backend/`.
 
 ## Features
 
@@ -131,18 +162,23 @@ Or upload to a GCS bucket with static website hosting enabled.
 
 ```
 vision-guide/
-├── index.html              # Main app page
-├── css/styles.css          # Mobile-first responsive styles
+├── backend/
+│   ├── server.js               # Local HTTP + WebSocket server
+│   └── adapters/               # Local model adapter scaffolding
+├── index.html                  # Main app page
+├── css/styles.css              # Mobile-first responsive styles
 ├── js/
-│   ├── app.js              # Main orchestrator
-│   ├── gemini-client.js    # Gemini Live API WebSocket client
-│   ├── audio-recorder.js   # Mic capture via AudioWorklet
-│   ├── audio-streamer.js   # Real-time audio playback
-│   ├── camera.js           # Camera capture + switching
+│   ├── app.js                  # Main orchestrator
+│   ├── gemini-client.js        # Gemini Live API WebSocket client
+│   ├── local-client.js         # Opalite Local WebSocket client
+│   ├── audio-recorder.js       # Mic capture via AudioWorklet
+│   ├── audio-streamer.js       # Real-time audio playback
+│   ├── camera.js               # Camera capture + switching
 │   └── worklets/
 │       └── audio-processor.js  # AudioWorklet processor
+├── docs/LOCAL_MODE.md
 ├── README.md
-├── DEVPOST.md              # Hackathon submission text
+├── DEVPOST.md                  # Hackathon submission text
 └── .gitignore
 ```
 

@@ -3,6 +3,12 @@
 
 window.OPALITE_API_KEY = 'PASTE_YOUR_KEY_HERE';
 
+window.OPALITE_LOCAL = {
+  preferredMode: 'gemini',
+  wsUrl: '/ws',
+  speechFallback: true
+};
+
 window.OPALITE_CV = {
   enabled: false,
   analysisIntervalMs: 2500,

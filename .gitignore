@@ -8,3 +8,16 @@ node_modules/
 .vscode/
 .idea/
 __pycache__/
+
+# Local Android/RealSense scratch, vendor, and build worktrees
+/android/realsense-android-test/
+/android/realsense-android-test-amd64/
+/third_party/librealsense/
+/build-support/librealsense-android-build/
+/build-support/librealsense-docker-build/
+/build-support/librealsense-gradle-cache/
+/build-support/realsense-android-test-dockerbuild/
+
+# Generated submission archives
+/submission/*.tar.gz
+/submission/SHA256SUMS-*.txt

@@ -91,6 +91,10 @@ html, body {
   text-align: left;
 }
 
+.input-group.hidden {
+  display: none;
+}
+
 .input-group label {
   display: block;
   font-size: 14px;
@@ -146,11 +150,23 @@ html, body {
   opacity: 0.5;
 }
 
+.setup-note {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-dim);
+  text-align: left;
+}
+
 .setup-footer {
   margin-top: 24px;
   font-size: 14px;
   color: var(--text-dim);
   line-height: 1.5;
+}
+
+.setup-footer-subtle {
+  margin-top: 8px;
 }
 
 .setup-footer a {
