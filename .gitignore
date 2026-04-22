@@ -21,3 +21,12 @@ __pycache__/
 # Generated submission archives
 /submission/*.tar.gz
 /submission/SHA256SUMS-*.txt
+
+# Phase 1 C++ runtime
+/build/
+/bin/
+*.pdb
+/data/saved_frames/*.png
+/data/saved_frames/*.ply
+/data/latency.csv
+imgui.ini
