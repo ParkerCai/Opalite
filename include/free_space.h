@@ -5,10 +5,11 @@
   CS5330 - Pattern Recognition & Computer Vision
 
   free_space.h
-  Three-sector forward free-space analyzer. Replaces the earlier single-
-  ROI binary obstacle flag. Each sector (left / center / right) reports
-  its nearest valid depth and a 0-1 clearance score; a suggested
-  direction picks the most open sector, ties broken toward center.
+  Three-sector forward free-space analyzer. Each sector (left / center /
+  right) reports a robust near-depth (low-percentile, not raw minimum) and
+  a 0-1 clearance score; a suggested direction picks the most open sector
+  with ties broken toward center. Percentile + minimum-support guard the
+  reading against single-pixel speckle and depth-map holes.
 */
 
 #pragma once
@@ -29,14 +30,29 @@ struct FreeSpaceConfig {
   float centerBeamFrac = 0.25f;
   // Vertical slice to sample (centered). Keeps ceiling / floor noise out.
   float coneYFrac = 0.50f;
+  // Percentile used as the sector's "near depth". 0.05 = 5th percentile,
+  // i.e. the value where 5 % of valid pixels are closer. Smaller values
+  // approach raw min (noisier); larger values grow more conservative.
+  float nearPercentile = 0.05f;
+  // Minimum count of valid (non-zero) depth pixels in a sector ROI before
+  // the reading is trusted. Below this the sector is "insufficient data"
+  // and never flagged blocked - prevents speckle / holes from flipping
+  // the suggested direction.
+  int minValidPixels = 200;
+  // Sticky-center bias: when the center sector is usable and not
+  // blocked, stay on CENTER unless a side's near-depth beats center's by
+  // at least this many metres. Keeps guidance calm instead of jittering
+  // between directions over tiny depth differences.
+  float sideBiasM = 0.25f;
   bool enabled = true;
 };
 
 struct SectorClearance {
-  float minDepthM = 0.0f;  // 0 means no valid samples in the ROI
-  float score = 0.0f;      // 0 = blocked at 0 m, 1 = clear at horizon
-  bool blocked = false;    // minDepthM > 0 and < blockedThresholdM
-  cv::Rect roi;            // pixel rectangle inside the depth image
+  float nearDepthM = 0.0f;  // 0 means insufficient valid samples in the ROI
+  float score = 0.0f;       // 0 = blocked at 0 m, 1 = clear at horizon
+  bool blocked = false;     // nearDepthM > 0 and < blockedThresholdM
+  int validPixels = 0;      // count of non-zero depth samples in the ROI
+  cv::Rect roi;             // pixel rectangle inside the depth image
 };
 
 enum class Direction { Left = 0, Center = 1, Right = 2 };
@@ -46,8 +62,8 @@ struct FreeSpaceResult {
   SectorClearance center;
   SectorClearance right;
   Direction suggested = Direction::Center;
-  // Shortcut for "what's directly in front": the center sector's min
-  // depth. 0 indicates no valid depth in the center band.
+  // Shortcut for "what's directly in front": the center sector's near-
+  // depth percentile. 0 indicates the center sector had insufficient data.
   float nearestForwardM = 0.0f;
 };
 

@@ -248,10 +248,10 @@ int main() {
         }
 
         // Label only the center sector with the distance (readable).
-        if (freeResult.center.minDepthM > 0.0f) {
+        if (freeResult.center.nearDepthM > 0.0f) {
           char label[64];
           std::snprintf(label, sizeof(label), "fwd %.2f m",
-            freeResult.center.minDepthM);
+            freeResult.center.nearDepthM);
           const cv::Point org(freeResult.center.roi.x,
             std::max(20, freeResult.center.roi.y - 10));
           cv::putText(colorBgr, label, org, cv::FONT_HERSHEY_SIMPLEX,
@@ -280,7 +280,7 @@ int main() {
             const int uLeft = sec->roi.x;
             const int uRight = sec->roi.x + sec->roi.width - 1;
             const float wedgeZ = std::min(
-              std::max(sec->minDepthM, freeCfg.blockedThresholdM),
+              std::max(sec->nearDepthM, freeCfg.blockedThresholdM),
               topdownCfg.extentM);
             float pixL[2] = { static_cast<float>(uLeft),
                               static_cast<float>(vCenter) };
@@ -465,7 +465,7 @@ int main() {
           : ImVec4(0.3f + 0.7f * (1.0f - s.score),
                    0.3f + 0.7f * s.score, 0.3f, 1.0f);
         ImGui::TextColored(col, "%s  %.2f m  score %.2f%s",
-          name, s.minDepthM, s.score, s.blocked ? "  [BLOCKED]" : "");
+          name, s.nearDepthM, s.score, s.blocked ? "  [BLOCKED]" : "");
       };
       sectorText("L", freeResult.left);
       sectorText("C", freeResult.center);
