@@ -30,7 +30,7 @@ public:
   // Non-blocking. Populates all three outputs with owning copies when a
   // new aligned frameset is available.
   //   colorBgrOut      CV_8UC3 BGR
-  //   depthMm16uOut    CV_16UC1 depth in millimetres (0 = invalid)
+  //   depthMm16uOut    CV_16UC1 depth in mm (0 = invalid)
   //   depthVizBgrOut   CV_8UC3 colorized depth, already in BGR order so
   //                    it flows through updateTexture unchanged
   bool poll(cv::Mat& colorBgrOut,

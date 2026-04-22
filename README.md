@@ -3,8 +3,9 @@
 Local-first spatial assistant for indoor navigation and assistive perception,
 built around an Intel RealSense D435i depth camera.
 
-Phase 1 target: a native C++ GUI on Windows that captures live color + depth,
-shows a top-down bird's-eye view, and flags forward-cone obstacles.
+Phase 1 target: a native C++ GUI on Windows that captures aligned color
+and depth, renders a top-down occupancy map, and uses depth geometry to
+score left / center / right free space and suggest a direction.
 
 ## Prerequisites (Windows)
 
@@ -36,14 +37,19 @@ alongside so there's no PATH setup required at runtime.
 ./bin/opalite.exe
 ```
 
-Current status: Phase 1 scaffold only. Run prints a single startup line and
-exits. See `.claude/plans/i-m-starting-a-fresh-whimsical-wilkes.md` (Google-
-Drive-level reference, may not be present in the repo) for the full Phase 1
-plan.
+Current status: live three-pane preview (full-width top-down, color +
+aligned depth, Controls strip), per-frame free-space analyzer with
+clearance scores and suggested direction, timestamped frame save,
+rolling pipeline-latency meter + CSV log.
 
 ## Controls
 
-(Placeholder — filled in once the ImGui shell lands in step 3.)
+- **Q / ESC / Quit button** — exit.
+- **Save frame** — write timestamped color + 16-bit depth PNGs to `data/saved_frames/`.
+- **Free space** — toggle the analyzer; sliders for `blocked (m)` (red-flag distance) and `horizon (m)` (full-clear distance).
+- **Top-down** — sliders for world `extent (m)`, `cell (m)` resolution, and `min Z (m)` near-plane cutoff.
+
+The Controls pane also shows live render/camera FPS, median & p95 pipeline latency, stream resolutions, depth range, and per-sector clearance.
 
 ## Repo layout
 

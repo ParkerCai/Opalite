@@ -66,7 +66,7 @@ set(OPALITE_SOURCES
     realsense_stream.cpp
     gl_textures.cpp
     topdown.cpp
-    obstacle.cpp
+    free_space.cpp
 )
 
 # Dear ImGui sources. Compiled directly into the executable - ImGui ships no

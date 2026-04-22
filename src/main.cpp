@@ -32,8 +32,8 @@
 #include <print>
 #include <string>
 
+#include "free_space.h"
 #include "gl_textures.h"
-#include "obstacle.h"
 #include "realsense_stream.h"
 #include "topdown.h"
 
@@ -62,6 +62,37 @@ namespace {
         }
       }
       lastMs = nowMs;
+    }
+  };
+
+  // Ring buffer of the last N per-frame pipeline latencies (time from
+  // poll-success to end-of-render in milliseconds). Sorted copies give
+  // median / p95 for the HUD; raw samples stream into data/latency.csv.
+  struct LatencyMeter {
+    static constexpr int kCapacity = 120;
+    std::array<double, kCapacity> buf{};
+    int head = 0;
+    int count = 0;
+
+    void push(double ms) {
+      buf[head] = ms;
+      head = (head + 1) % kCapacity;
+      if (count < kCapacity) ++count;
+    }
+
+    double percentile(double p) const {
+      if (count == 0) return 0.0;
+      std::array<double, kCapacity> sorted{};
+      std::copy_n(buf.begin(), count, sorted.begin());
+      std::sort(sorted.begin(), sorted.begin() + count);
+      int idx = static_cast<int>(p * (count - 1));
+      idx = std::clamp(idx, 0, count - 1);
+      return sorted[idx];
+    }
+
+    double minVal() const {
+      if (count == 0) return 0.0;
+      return *std::min_element(buf.begin(), buf.begin() + count);
     }
   };
 
@@ -114,7 +145,8 @@ int main() {
   RealSenseStream camera;
   try {
     camera.start();
-  } catch (const rs2::error& e) {
+  }
+  catch (const rs2::error& e) {
     std::fprintf(stderr, "RealSense start failed: %s (%s)\n",
       e.what(), e.get_failed_function().c_str());
     ImGui_ImplOpenGL3_Shutdown();
@@ -140,8 +172,8 @@ int main() {
   double depthMinM = 0.0;
   double depthMaxM = 0.0;
   TopDownConfig topdownCfg;
-  ObstacleConfig obsCfg;
-  ObstacleResult obsResult;
+  FreeSpaceConfig freeCfg;
+  FreeSpaceResult freeResult;
 
   const std::filesystem::path saveDir = "data/saved_frames";
   {
@@ -153,6 +185,17 @@ int main() {
     }
   }
   std::string lastSavedLabel;
+
+  // Latency trace: pipeline time from capture-poll success to end-of-
+  // render, logged per fresh frame. Header written only on first call.
+  LatencyMeter latency;
+  std::ofstream latencyCsv("data/latency.csv", std::ios::out | std::ios::trunc);
+  if (latencyCsv) {
+    latencyCsv << "wall_ms,latency_ms\n";
+  } else {
+    std::fprintf(stderr, "Warning: could not open data/latency.csv\n");
+  }
+  double pendingGrabMs = -1.0;  // -1 = no new frame to time this render
 
   bool shouldClose = false;
 
@@ -167,7 +210,8 @@ int main() {
     }
 
     if (camera.poll(colorBgr, depthMm16u, depthVizBgr)) {
-      cameraFps.tick(glfwGetTime() * 1000.0);
+      pendingGrabMs = glfwGetTime() * 1000.0;
+      cameraFps.tick(pendingGrabMs);
 
       // Min / max over valid (non-zero) depth pixels, converted to metres.
       cv::Mat validMask = depthMm16u > 0;
@@ -180,46 +224,45 @@ int main() {
 
       topdownBgr = buildTopDown(depthMm16u, camera.depthIntrinsics(), topdownCfg);
 
-      obsResult = obsCfg.enabled
-        ? detectForwardObstacle(depthMm16u, obsCfg)
-        : ObstacleResult{};
+      freeResult = freeCfg.enabled
+        ? analyzeForwardPath(depthMm16u, freeCfg)
+        : FreeSpaceResult{};
 
-      // Overlays on color + top-down. Yellow = ROI visible but clear;
-      // red = something inside the threshold.
-      if (obsCfg.enabled) {
-        const cv::Scalar roiColor = obsResult.present
-          ? cv::Scalar(0, 0, 255) : cv::Scalar(0, 255, 255);
+      // Clearance -> BGR: interpolate red (blocked) through yellow to
+      // green (clear). Cheap, communicates severity without a colormap.
+      auto clearanceColor = [](const SectorClearance& sec) -> cv::Scalar {
+        const float s = sec.score;  // 0..1
+        const float r = (s < 0.5f) ? 255.0f : (1.0f - s) * 2.0f * 255.0f;
+        const float g = (s < 0.5f) ? s * 2.0f * 255.0f : 255.0f;
+        return cv::Scalar(0.0, g, r);  // BGR
+      };
+
+      if (freeCfg.enabled) {
         const int thickness = std::max(2, static_cast<int>(2 * uiScale));
-        cv::rectangle(colorBgr, obsResult.roi, roiColor, thickness);
-        if (obsResult.present) {
-          char label[64];
-          std::snprintf(label, sizeof(label),
-            "OBSTACLE @ %.2f m", obsResult.minDepthM);
-          const cv::Point org(obsResult.roi.x,
-            std::max(20, obsResult.roi.y - 10));
-          cv::putText(colorBgr, label, org, cv::FONT_HERSHEY_SIMPLEX,
-            0.8, roiColor, 2, cv::LINE_AA);
+        const SectorClearance* sectors[3] = {
+          &freeResult.left, &freeResult.center, &freeResult.right
+        };
+
+        for (const SectorClearance* sec : sectors) {
+          cv::rectangle(colorBgr, sec->roi, clearanceColor(*sec), thickness);
         }
 
-        // Forward-cone wedge on the top-down map.
+        // Label only the center sector with the distance (readable).
+        if (freeResult.center.minDepthM > 0.0f) {
+          char label[64];
+          std::snprintf(label, sizeof(label), "fwd %.2f m",
+            freeResult.center.minDepthM);
+          const cv::Point org(freeResult.center.roi.x,
+            std::max(20, freeResult.center.roi.y - 10));
+          cv::putText(colorBgr, label, org, cv::FONT_HERSHEY_SIMPLEX,
+            0.8, clearanceColor(freeResult.center), 2, cv::LINE_AA);
+        }
+
+        // Three sector wedges on the top-down map - same color scheme.
         if (!topdownBgr.empty()) {
           const rs2_intrinsics& intr = camera.depthIntrinsics();
-          const int srcW = depthMm16u.cols;
           const int srcH = depthMm16u.rows;
-          const int uLeft = obsResult.roi.x;
-          const int uRight = obsResult.roi.x + obsResult.roi.width - 1;
           const int vCenter = srcH / 2;
-          const float wedgeZ = std::min(obsCfg.thresholdM, topdownCfg.extentM);
-
-          float pixL[2] = { static_cast<float>(uLeft),
-                            static_cast<float>(vCenter) };
-          float pixR[2] = { static_cast<float>(uRight),
-                            static_cast<float>(vCenter) };
-          float ptL[3] = { 0.0f, 0.0f, 0.0f };
-          float ptR[3] = { 0.0f, 0.0f, 0.0f };
-          rs2_deproject_pixel_to_point(ptL, &intr, pixL, wedgeZ);
-          rs2_deproject_pixel_to_point(ptR, &intr, pixR, wedgeZ);
-
           const int tdW = topdownBgr.cols;
           const int tdH = topdownBgr.rows;
           const float invCell = 1.0f / topdownCfg.cellM;
@@ -231,12 +274,28 @@ int main() {
             return cv::Point(col, row);
           };
           const cv::Point cam(tdW / 2, tdH - 1);
-          const cv::Point left = toCell(ptL[0], ptL[2]);
-          const cv::Point right = toCell(ptR[0], ptR[2]);
-          cv::line(topdownBgr, cam, left, roiColor, 1);
-          cv::line(topdownBgr, cam, right, roiColor, 1);
-          cv::line(topdownBgr, left, right, roiColor, 1);
-          (void)srcW;
+
+          for (const SectorClearance* sec : sectors) {
+            const cv::Scalar color = clearanceColor(*sec);
+            const int uLeft = sec->roi.x;
+            const int uRight = sec->roi.x + sec->roi.width - 1;
+            const float wedgeZ = std::min(
+              std::max(sec->minDepthM, freeCfg.blockedThresholdM),
+              topdownCfg.extentM);
+            float pixL[2] = { static_cast<float>(uLeft),
+                              static_cast<float>(vCenter) };
+            float pixR[2] = { static_cast<float>(uRight),
+                              static_cast<float>(vCenter) };
+            float ptL[3] = { 0, 0, 0 };
+            float ptR[3] = { 0, 0, 0 };
+            rs2_deproject_pixel_to_point(ptL, &intr, pixL, wedgeZ);
+            rs2_deproject_pixel_to_point(ptR, &intr, pixR, wedgeZ);
+            const cv::Point l = toCell(ptL[0], ptL[2]);
+            const cv::Point r = toCell(ptR[0], ptR[2]);
+            cv::line(topdownBgr, cam, l, color, 1);
+            cv::line(topdownBgr, cam, r, color, 1);
+            cv::line(topdownBgr, l, r, color, 1);
+          }
         }
       }
 
@@ -299,7 +358,7 @@ int main() {
         return ImVec2(avail.y * srcAspect, avail.y);
       }
       return ImVec2(avail.x, avail.x / srcAspect);
-    };
+      };
 
     // Top-Down pane (full-width top row). Image stretches to fill the
     // entire content region - aspect is intentionally ignored so the
@@ -309,7 +368,8 @@ int main() {
     ImGui::Begin("Top-Down", nullptr, kFixedFlags);
     if (!topdownBgr.empty()) {
       ImGui::Image(topdownHandle, ImGui::GetContentRegionAvail());
-    } else {
+    }
+    else {
       ImGui::Text("waiting for top-down...");
     }
     ImGui::End();
@@ -323,7 +383,8 @@ int main() {
         fitImageSize(static_cast<float>(camera.colorWidth()),
           static_cast<float>(camera.colorHeight()),
           ImGui::GetContentRegionAvail()));
-    } else {
+    }
+    else {
       ImGui::Text("waiting for first color frame...");
     }
     ImGui::End();
@@ -337,7 +398,8 @@ int main() {
         fitImageSize(static_cast<float>(camera.depthWidth()),
           static_cast<float>(camera.depthHeight()),
           ImGui::GetContentRegionAvail()));
-    } else {
+    }
+    else {
       ImGui::Text("waiting for first depth frame...");
     }
     ImGui::End();
@@ -349,6 +411,8 @@ int main() {
     ImGui::Columns(3, "controls_cols", false);
     ImGui::Text("Render: %.1f FPS", ImGui::GetIO().Framerate);
     ImGui::Text("Camera: %.1f FPS", cameraFps.ewma);
+    ImGui::Text("Latency: med %.1f ms  p95 %.1f ms",
+      latency.percentile(0.5), latency.percentile(0.95));
     ImGui::Text("USB:    %s", camera.usbType().c_str());
     if (ImGui::Button("Quit")) shouldClose = true;
     ImGui::SameLine();
@@ -379,20 +443,33 @@ int main() {
     ImGui::Text("Depth:  %d x %d", camera.depthWidth(), camera.depthHeight());
     ImGui::Text("Range:  %.2f m - %.2f m", depthMinM, depthMaxM);
     ImGui::Separator();
-    ImGui::Text("Obstacle");
-    ImGui::Checkbox("enabled", &obsCfg.enabled);
+    ImGui::Text("Free space");
+    ImGui::Checkbox("enabled##free", &freeCfg.enabled);
     ImGui::SetNextItemWidth(200.0f * uiScale);
-    ImGui::SliderFloat("threshold (m)", &obsCfg.thresholdM, 0.3f, 3.0f, "%.2f");
-    if (obsCfg.enabled) {
-      if (obsResult.present) {
-        ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f),
-          "OBSTACLE @ %.2f m", obsResult.minDepthM);
-      } else {
-        ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f),
-          "clear (min %.2f m)", obsResult.minDepthM);
-      }
+    ImGui::SliderFloat("blocked (m)", &freeCfg.blockedThresholdM,
+      0.3f, 2.0f, "%.2f");
+    ImGui::SetNextItemWidth(200.0f * uiScale);
+    ImGui::SliderFloat("horizon (m)", &freeCfg.clearHorizonM,
+      1.0f, 6.0f, "%.1f");
+    if (freeCfg.enabled) {
+      auto sectorText = [](const char* name, const SectorClearance& s) {
+        const ImVec4 col = s.blocked
+          ? ImVec4(1.0f, 0.3f, 0.3f, 1.0f)
+          : ImVec4(0.3f + 0.7f * (1.0f - s.score),
+                   0.3f + 0.7f * s.score, 0.3f, 1.0f);
+        ImGui::TextColored(col, "%s  %.2f m  score %.2f%s",
+          name, s.minDepthM, s.score, s.blocked ? "  [BLOCKED]" : "");
+      };
+      sectorText("L", freeResult.left);
+      sectorText("C", freeResult.center);
+      sectorText("R", freeResult.right);
+      const char* dirName =
+        freeResult.suggested == Direction::Left ? "LEFT"
+        : freeResult.suggested == Direction::Right ? "RIGHT" : "CENTER";
+      ImGui::Text("Forward: %.2f m   Suggested: %s",
+        freeResult.nearestForwardM, dirName);
     } else {
-      ImGui::TextDisabled("(detector off)");
+      ImGui::TextDisabled("(analyzer off)");
     }
     ImGui::NextColumn();
     ImGui::Text("Top-down");
@@ -412,6 +489,20 @@ int main() {
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
     glfwSwapBuffers(window);
+
+    // Close the pipeline latency measurement only on frames where we
+    // actually had a new capture; idle passes through the loop aren't
+    // useful data points.
+    if (pendingGrabMs > 0.0) {
+      const double endMs = glfwGetTime() * 1000.0;
+      const double latMs = endMs - pendingGrabMs;
+      latency.push(latMs);
+      if (latencyCsv) {
+        latencyCsv << std::fixed << std::setprecision(3)
+          << endMs << "," << latMs << "\n";
+      }
+      pendingGrabMs = -1.0;
+    }
   }
 
   const GLuint textures[] = { colorTex, depthTex, topdownTex };
