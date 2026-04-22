@@ -20,8 +20,13 @@ struct FreeSpaceConfig {
   float blockedThresholdM = 0.5f;
   // Clamp point for full clearance: depth >= this maps to score 1.0.
   float clearHorizonM = 3.0f;
-  // Horizontal portion of the image considered (centered, split in 3).
-  float coneXFrac = 0.60f;
+  // Total horizontal span of image width used for the three sectors.
+  // Default 0.95 covers most of the ~69 deg horizontal FoV.
+  float coneXFrac = 0.95f;
+  // Width of the narrow center "forward hazard" beam as a fraction of the
+  // image width. The left / right sectors split what's left of the span.
+  // Default 0.25 (~22 deg) for a readable beam on the demo display.
+  float centerBeamFrac = 0.25f;
   // Vertical slice to sample (centered). Keeps ceiling / floor noise out.
   float coneYFrac = 0.50f;
   bool enabled = true;

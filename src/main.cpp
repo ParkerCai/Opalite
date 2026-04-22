@@ -451,6 +451,13 @@ int main() {
     ImGui::SetNextItemWidth(200.0f * uiScale);
     ImGui::SliderFloat("horizon (m)", &freeCfg.clearHorizonM,
       1.0f, 6.0f, "%.1f");
+    ImGui::SetNextItemWidth(200.0f * uiScale);
+    ImGui::SliderFloat("span", &freeCfg.coneXFrac, 0.30f, 1.00f, "%.2f");
+    ImGui::SetNextItemWidth(200.0f * uiScale);
+    ImGui::SliderFloat("beam", &freeCfg.centerBeamFrac, 0.05f, 0.50f, "%.2f");
+    if (freeCfg.centerBeamFrac > freeCfg.coneXFrac - 0.04f) {
+      freeCfg.centerBeamFrac = std::max(0.05f, freeCfg.coneXFrac - 0.04f);
+    }
     if (freeCfg.enabled) {
       auto sectorText = [](const char* name, const SectorClearance& s) {
         const ImVec4 col = s.blocked

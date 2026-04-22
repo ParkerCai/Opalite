@@ -51,22 +51,29 @@ FreeSpaceResult analyzeForwardPath(const cv::Mat& depthMm16u,
   const int W = depthMm16u.cols;
   const int H = depthMm16u.rows;
 
-  const int coneW = std::max(3, static_cast<int>(W * cfg.coneXFrac));
+  // Clamp the configuration so the center beam always fits inside the
+  // overall span, leaving at least a 1-pixel slice for each side.
+  const float span = std::clamp(cfg.coneXFrac, 0.10f, 1.0f);
+  const float beam = std::clamp(cfg.centerBeamFrac, 0.02f,
+    std::max(0.04f, span - 0.04f));
+
+  const int coneW = std::max(3, static_cast<int>(W * span));
   const int coneH = std::max(1, static_cast<int>(H * cfg.coneYFrac));
   const int coneX0 = (W - coneW) / 2;
   const int coneY0 = (H - coneH) / 2;
 
-  // Three equal vertical stripes inside the forward cone.
-  const int stripeW = coneW / 3;
+  // Narrow center beam, wide left / right sectors flanking it.
+  const int beamW = std::clamp(static_cast<int>(W * beam), 2, coneW - 2);
+  const int centerX = (W - beamW) / 2;
   const int leftX = coneX0;
-  const int centerX = coneX0 + stripeW;
-  const int rightX = coneX0 + 2 * stripeW;
-  const int rightW = coneW - 2 * stripeW;  // absorb rounding remainder
+  const int leftW = centerX - leftX;
+  const int rightX = centerX + beamW;
+  const int rightW = (coneX0 + coneW) - rightX;
 
   out.left = scoreSector(depthMm16u,
-    cv::Rect(leftX, coneY0, stripeW, coneH), cfg);
+    cv::Rect(leftX, coneY0, leftW, coneH), cfg);
   out.center = scoreSector(depthMm16u,
-    cv::Rect(centerX, coneY0, stripeW, coneH), cfg);
+    cv::Rect(centerX, coneY0, beamW, coneH), cfg);
   out.right = scoreSector(depthMm16u,
     cv::Rect(rightX, coneY0, rightW, coneH), cfg);
 
