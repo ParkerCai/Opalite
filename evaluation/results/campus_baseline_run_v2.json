@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "runName": "campus_baseline_v2",
+    "model": "gemini-2.5-flash-exp",
+    "notes": "Baseline evaluation run using basic visual analysis without enhanced CV modules. Represents core Gemini vision capabilities for campus navigation assistance.",
+    "source": "controlled campus evaluation",
+    "timestamp": "2026-04-02T19:05:00Z"
+  },
+  "results": [
+    {
+      "scenarioId": "hallway-clear",
+      "responseText": "I can see a hallway with doors on the sides. The path ahead looks clear.",
+      "sceneLabels": ["hallway"],
+      "hazards": [],
+      "objects": ["door"],
+      "directions": ["ahead"],
+      "textKeywords": [],
+      "latencyMs": 1180
+    },
+    {
+      "scenarioId": "stairs-down",
+      "responseText": "There are stairs going down ahead. I can see a handrail.",
+      "sceneLabels": ["staircase"],
+      "hazards": ["stairs"],
+      "objects": ["handrail"],
+      "directions": ["ahead"],
+      "textKeywords": [],
+      "latencyMs": 1350
+    },
+    {
+      "scenarioId": "crosswalk-traffic",
+      "responseText": "I see a crosswalk and there's a car coming from the left side.",
+      "sceneLabels": ["street"],
+      "hazards": ["car"],
+      "objects": ["crosswalk"],
+      "directions": ["left"],
+      "textKeywords": [],
+      "latencyMs": 1420
+    },
+    {
+      "scenarioId": "exit-sign",
+      "responseText": "There's a door ahead and I can see an exit sign above it.",
+      "sceneLabels": ["hallway"],
+      "hazards": [],
+      "objects": ["door", "sign"],
+      "directions": ["ahead"],
+      "textKeywords": ["exit"],
+      "latencyMs": 1290
+    },
+    {
+      "scenarioId": "crowded-sidewalk",
+      "responseText": "The sidewalk has people walking and there's a bench that makes the path narrower.",
+      "sceneLabels": ["sidewalk"],
+      "hazards": ["person"],
+      "objects": ["bench"],
+      "directions": [],
+      "textKeywords": [],
+      "latencyMs": 1580
+    },
+    {
+      "scenarioId": "cafeteria-menu",
+      "responseText": "I can see a menu board with coffee and tea prices. Coffee is around $3-4.",
+      "sceneLabels": ["cafeteria"],
+      "hazards": [],
+      "objects": ["menu"],
+      "directions": [],
+      "textKeywords": ["coffee", "tea", "3", "4"],
+      "latencyMs": 1470
+    }
+  ]
+}

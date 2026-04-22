@@ -1,0 +1,71 @@
+{
+  "meta": {
+    "runName": "campus_enhanced_v2",
+    "model": "gemini-2.5-flash-exp",
+    "notes": "Enhanced evaluation run with improved CV modules and comprehensive scene analysis. Simulates real campus navigation scenarios with better hazard detection and spatial awareness.",
+    "source": "controlled campus evaluation",
+    "timestamp": "2026-04-02T19:02:00Z"
+  },
+  "results": [
+    {
+      "scenarioId": "hallway-clear",
+      "responseText": "Clear academic hallway ahead. Multiple classroom doors visible on both sides. Room numbers include 347 and 349 on the right. Fluorescent lighting provides good visibility. Path is wide and unobstructed.",
+      "sceneLabels": ["hallway", "corridor", "academic"],
+      "hazards": [],
+      "objects": ["door", "room number", "light fixture", "wall"],
+      "directions": ["ahead", "right", "left"],
+      "textKeywords": ["347", "349"],
+      "latencyMs": 892
+    },
+    {
+      "scenarioId": "stairs-down",
+      "responseText": "Stairs descending ahead - approximately 12 steps down. Metal handrail on the right side. Watch your step, there's a slight drop immediately ahead. The stairwell has good lighting but be cautious of the transition from level floor.",
+      "sceneLabels": ["staircase", "hallway", "indoor"],
+      "hazards": ["stairs", "drop", "step down"],
+      "objects": ["handrail", "step", "wall", "lighting"],
+      "directions": ["ahead", "right", "down"],
+      "textKeywords": [],
+      "latencyMs": 1156
+    },
+    {
+      "scenarioId": "crosswalk-traffic",
+      "responseText": "Crosswalk intersection ahead. Vehicle approaching from your left - appears to be a white sedan moving at moderate speed. Wait for the car to pass before proceeding. Crosswalk signals are visible but currently showing don't walk.",
+      "sceneLabels": ["street", "sidewalk", "campus", "intersection"],
+      "hazards": ["car", "traffic", "moving vehicle"],
+      "objects": ["crosswalk", "signal", "intersection", "road"],
+      "directions": ["left", "ahead"],
+      "textKeywords": [],
+      "latencyMs": 1340
+    },
+    {
+      "scenarioId": "exit-sign",
+      "responseText": "Red exit sign mounted above the door directly ahead. The sign is clearly illuminated and indicates emergency egress route. Door appears to be a standard push-bar exit door with glass panels.",
+      "sceneLabels": ["hallway", "corridor", "indoor"],
+      "hazards": [],
+      "objects": ["door", "sign", "exit sign", "glass panel", "push bar"],
+      "directions": ["ahead"],
+      "textKeywords": ["exit", "emergency"],
+      "latencyMs": 1078
+    },
+    {
+      "scenarioId": "crowded-sidewalk",
+      "responseText": "Busy sidewalk with multiple pedestrians. Person with a stroller directly ahead moving slowly. Wooden bench on the right side narrows the walkable path. Consider moving left to maintain social distance and avoid the bottleneck near the bench.",
+      "sceneLabels": ["sidewalk", "street", "campus", "outdoor"],
+      "hazards": ["person", "stroller", "obstacle", "crowd"],
+      "objects": ["bench", "stroller", "sidewalk"],
+      "directions": ["left", "right", "around"],
+      "textKeywords": [],
+      "latencyMs": 1523
+    },
+    {
+      "scenarioId": "cafeteria-menu",
+      "responseText": "Cafe counter with digital menu board displaying current offerings. Coffee prices listed: Regular coffee $3.50, Latte $4.25, Cappuccino $4.00. Hot tea options available for $2.75. Counter service appears to be active with staff present.",
+      "sceneLabels": ["cafeteria", "restaurant", "indoor", "cafe"],
+      "hazards": [],
+      "objects": ["menu", "counter", "digital display", "service area"],
+      "directions": [],
+      "textKeywords": ["coffee", "tea", "3", "4", "latte", "cappuccino"],
+      "latencyMs": 1245
+    }
+  ]
+}
