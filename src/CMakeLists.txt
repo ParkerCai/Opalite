@@ -52,9 +52,20 @@ FetchContent_Declare(imgui
 )
 FetchContent_MakeAvailable(imgui)
 
+# miniaudio (single-header, Windows / Linux / Android / macOS, MIT-0).
+# Used by the Phase 2A sonar layer. Populate only - no CMakeLists in the
+# repo root - and include the source dir directly. The
+# MINIAUDIO_IMPLEMENTATION macro is defined in exactly one .cpp.
+FetchContent_Declare(miniaudio
+    GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+    GIT_TAG 0.11.22
+)
+FetchContent_MakeAvailable(miniaudio)
+
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/../include)
 include_directories(${imgui_SOURCE_DIR})
 include_directories(${imgui_SOURCE_DIR}/backends)
+include_directories(${miniaudio_SOURCE_DIR})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../bin)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_CURRENT_SOURCE_DIR}/../bin)
@@ -67,6 +78,7 @@ set(OPALITE_SOURCES
     gl_textures.cpp
     topdown.cpp
     free_space.cpp
+    sonar.cpp
 )
 
 # Dear ImGui sources. Compiled directly into the executable - ImGui ships no

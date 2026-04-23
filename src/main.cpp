@@ -35,6 +35,7 @@
 #include "free_space.h"
 #include "gl_textures.h"
 #include "realsense_stream.h"
+#include "sonar.h"
 #include "topdown.h"
 
 #include <librealsense2/rsutil.h>
@@ -175,6 +176,11 @@ int main() {
   FreeSpaceConfig freeCfg;
   FreeSpaceResult freeResult;
 
+  Sonar sonar;
+  if (!sonar.start()) {
+    std::fprintf(stderr, "Sonar: audio unavailable, continuing without feedback\n");
+  }
+
   const std::filesystem::path saveDir = "data/saved_frames";
   {
     std::error_code ec;
@@ -209,6 +215,13 @@ int main() {
       shouldClose = true;
     }
 
+    // M toggles sonar mute. Edge-detect so holding the key doesn't
+    // flip-flop the state every frame.
+    static bool mWasDown = false;
+    const bool mDown = glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS;
+    if (mDown && !mWasDown) sonar.setEnabled(!sonar.isEnabled());
+    mWasDown = mDown;
+
     if (camera.poll(colorBgr, depthMm16u, depthVizBgr)) {
       pendingGrabMs = glfwGetTime() * 1000.0;
       cameraFps.tick(pendingGrabMs);
@@ -227,6 +240,16 @@ int main() {
       freeResult = freeCfg.enabled
         ? analyzeForwardPath(depthMm16u, freeCfg)
         : FreeSpaceResult{};
+
+      // Feed all three sectors' current clearances to the sonar layer.
+      // Insufficient-support sectors are silenced at the source.
+      const int minValid = freeCfg.minValidPixels;
+      sonar.setLeft  (freeResult.left.score,
+                      freeResult.left.validPixels   >= minValid);
+      sonar.setCenter(freeResult.center.score,
+                      freeResult.center.validPixels >= minValid);
+      sonar.setRight (freeResult.right.score,
+                      freeResult.right.validPixels  >= minValid);
 
       // Clearance -> BGR: interpolate red (blocked) through yellow to
       // green (clear). Cheap, communicates severity without a colormap.
@@ -477,6 +500,40 @@ int main() {
         freeResult.nearestForwardM, dirName);
     } else {
       ImGui::TextDisabled("(analyzer off)");
+    }
+    ImGui::Separator();
+    ImGui::Text("Sonar  (M to mute)");
+    {
+      bool sonarOn = sonar.isEnabled();
+      if (ImGui::Checkbox("enabled##sonar", &sonarOn)) sonar.setEnabled(sonarOn);
+      float sonarVol = sonar.volume();
+      ImGui::SetNextItemWidth(200.0f * uiScale);
+      if (ImGui::SliderFloat("volume", &sonarVol, 0.0f, 1.0f, "%.2f")) {
+        sonar.setVolume(sonarVol);
+      }
+      float sonarHz = sonar.carrierHz();
+      ImGui::SetNextItemWidth(200.0f * uiScale);
+      if (ImGui::SliderFloat("pitch (Hz)", &sonarHz, 50.0f, 600.0f, "%.0f")) {
+        sonar.setCarrierHz(sonarHz);
+      }
+      float sonarFalloff = sonar.falloffExponent();
+      ImGui::SetNextItemWidth(200.0f * uiScale);
+      if (ImGui::SliderFloat("falloff", &sonarFalloff, 2.0f, 8.0f, "%.1f")) {
+        sonar.setFalloffExponent(sonarFalloff);
+      }
+      // Per-sector meters - read the audio thread's most recent smoothed
+      // amplitudes so the bars match what's actually playing.
+      const ImVec2 meterSize(140.0f * uiScale, 6.0f * uiScale);
+      ImGui::Text("L");
+      ImGui::SameLine();
+      ImGui::ProgressBar(sonar.leftAmp(),  meterSize, "");
+      ImGui::Text("C");
+      ImGui::SameLine();
+      ImGui::ProgressBar(sonar.centerAmp(), meterSize, "");
+      ImGui::Text("R");
+      ImGui::SameLine();
+      ImGui::ProgressBar(sonar.rightAmp(), meterSize, "");
+      ImGui::TextDisabled(sonar.isRunning() ? "(audio device up)" : "(no audio device)");
     }
     ImGui::NextColumn();
     ImGui::Text("Top-down");
