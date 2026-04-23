@@ -3,9 +3,10 @@
 Local-first spatial assistant for indoor navigation and assistive perception,
 built around an Intel RealSense D435i depth camera.
 
-Phase 1 target: a native C++ GUI on Windows that captures aligned color
-and depth, renders a top-down occupancy map, and uses depth geometry to
-score left / center / right free space and suggest a direction.
+Phase 1 baseline: a native C++ GUI on Windows that captures aligned
+color and depth, renders a top-down occupancy map, and uses depth
+geometry to score left / center / right free space and suggest a
+direction.
 
 Phase 2 adds two optional feedback layers on top of the Phase 1
 geometry baseline, both running locally:
@@ -140,13 +141,12 @@ docs/        project proposal and demo script
 
 ## Known limitations (Phase 1)
 
-- **No height filtering** — the top-down map bins ceiling, wall, and torso-height pixels into the same (X, Z) cells, so overhead obstructions can blob together with floor-plane ones. Y-range gating is Phase 2.
+- **No height filtering** — the top-down map bins ceiling, wall, and torso-height pixels into the same (X, Z) cells, so overhead obstructions can blob together with floor-plane ones.
 - **Single-frame analyzer** — no temporal smoothing. Moving the camera quickly produces a brief wobble in the Suggested direction.
 - **D435i depth floor** ~0.28 m — objects closer than that show up as invalid (zero) pixels, not near-range obstacles.
 - **Reflective / transparent surfaces** produce depth holes; with min-support gating these reduce to "insufficient data" rather than false alarms, but the sector is effectively blind in that direction.
-- **No semantic classification in the real-time loop** — Phase 1 is
-  geometry-only at 30 Hz. The Phase 2B Brain pane adds a semantic
-  layer but only on-demand (~2.5 s round-trip), not per frame.
+- **No object recognition in the real-time loop** — Phase 1 runs at
+  the camera's 30 FPS using depth geometry only.
 
 ## Known limitations (Phase 2)
 
