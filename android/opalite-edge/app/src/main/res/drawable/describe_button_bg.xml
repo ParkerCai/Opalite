@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Describe-button background. Rectangular with bottom corners rounded
+  to roughly match the phone's display corner radius, so the pinned
+  button hugs the screen edge cleanly. Enabled state uses a blue fill
+  with a white-alpha ripple on press; disabled state is flat dim gray.
+-->
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_enabled="false">
+        <shape android:shape="rectangle">
+            <solid android:color="#222222" />
+            <corners
+                android:topLeftRadius="0dp"
+                android:topRightRadius="0dp"
+                android:bottomLeftRadius="40dp"
+                android:bottomRightRadius="40dp" />
+        </shape>
+    </item>
+    <item>
+        <ripple android:color="#66FFFFFF">
+            <item>
+                <shape android:shape="rectangle">
+                    <solid android:color="#1565C0" />
+                    <corners
+                        android:topLeftRadius="0dp"
+                        android:topRightRadius="0dp"
+                        android:bottomLeftRadius="40dp"
+                        android:bottomRightRadius="40dp" />
+                </shape>
+            </item>
+        </ripple>
+    </item>
+</selector>

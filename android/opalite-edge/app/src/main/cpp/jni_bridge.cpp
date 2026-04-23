@@ -60,25 +60,27 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* /*vm*/, void* /*reserved*/) {
 // ---------------------------------------------------------------------------
 
 // Signature: void analyzeFreeSpaceNative(short[] depth, int w, int h,
-//   float blockedThresholdM, float clearHorizonM, float[] out8)
+//   float blockedThresholdM, float clearHorizonM, float[] out10)
 //
-// out8 layout (pre-allocated by caller, one per Activity):
-//   [0] leftScore     (0..1; 0 blocked, 1 clear at horizon)
+// out10 layout (pre-allocated by caller, one per Activity):
+//   [0] leftScore      (0..1; 0 blocked, 1 clear at horizon)
 //   [1] centerScore
 //   [2] rightScore
-//   [3] leftValid     (0.0 / 1.0; false when insufficient depth samples)
+//   [3] leftValid      (0.0 / 1.0; false when insufficient depth samples)
 //   [4] centerValid
 //   [5] rightValid
-//   [6] centerNearDepthM  (0 when center sector invalid)
-//   [7] suggestedDir      (0=Left, 1=Center, 2=Right)
+//   [6] leftNearM      (0 when sector invalid)
+//   [7] centerNearM
+//   [8] rightNearM
+//   [9] suggestedDir   (0=Left, 1=Center, 2=Right)
 JNIEXPORT void JNICALL
 Java_com_opalite_edge_MainActivity_analyzeFreeSpaceNative(
     JNIEnv* env, jclass /*clazz*/,
     jshortArray depth, jint w, jint h,
     jfloat blockedThresholdM, jfloat clearHorizonM,
-    jfloatArray out8) {
+    jfloatArray out10) {
 
-  if (depth == nullptr || out8 == nullptr) return;
+  if (depth == nullptr || out10 == nullptr) return;
   if (w <= 0 || h <= 0) return;
 
   const jsize depthLen = env->GetArrayLength(depth);
@@ -87,10 +89,6 @@ Java_com_opalite_edge_MainActivity_analyzeFreeSpaceNative(
     return;
   }
 
-  // GetShortArrayRegion copies into a local buffer; cheaper than
-  // GetShortArrayElements on large arrays because it skips the
-  // "critical section" bookkeeping and pairs a single memcpy with
-  // no need for a matching Release*Elements call.
   std::vector<int16_t> buf(static_cast<size_t>(w) * h);
   env->GetShortArrayRegion(depth, 0, w * h,
     reinterpret_cast<jshort*>(buf.data()));
@@ -99,21 +97,22 @@ Java_com_opalite_edge_MainActivity_analyzeFreeSpaceNative(
   cfg.blockedThresholdM = blockedThresholdM;
   cfg.clearHorizonM = clearHorizonM;
 
-  // Java shorts are signed; RealSense depth is unsigned mm, so reinterpret.
   const FreeSpaceResult fs = analyzeForwardPath(
     reinterpret_cast<const uint16_t*>(buf.data()), w, h, cfg);
 
-  float out[8];
+  float out[10];
   out[0] = fs.left.score;
   out[1] = fs.center.score;
   out[2] = fs.right.score;
   out[3] = (fs.left.validPixels   >= cfg.minValidPixels) ? 1.0f : 0.0f;
   out[4] = (fs.center.validPixels >= cfg.minValidPixels) ? 1.0f : 0.0f;
   out[5] = (fs.right.validPixels  >= cfg.minValidPixels) ? 1.0f : 0.0f;
-  out[6] = fs.center.nearDepthM;
-  out[7] = static_cast<float>(static_cast<int>(fs.suggested));
+  out[6] = fs.left.nearDepthM;
+  out[7] = fs.center.nearDepthM;
+  out[8] = fs.right.nearDepthM;
+  out[9] = static_cast<float>(static_cast<int>(fs.suggested));
 
-  env->SetFloatArrayRegion(out8, 0, 8, out);
+  env->SetFloatArrayRegion(out10, 0, 10, out);
 }
 
 // ---------------------------------------------------------------------------
@@ -152,6 +151,20 @@ Java_com_opalite_edge_MainActivity_sonarSetEnabledNative(
 }
 
 JNIEXPORT void JNICALL
+Java_com_opalite_edge_MainActivity_sonarSetCarrierHzNative(
+    JNIEnv* /*env*/, jclass /*clazz*/, jfloat hz) {
+  std::lock_guard<std::mutex> lock(g_sonarMtx);
+  if (g_sonar) g_sonar->setCarrierHz(hz);
+}
+
+JNIEXPORT void JNICALL
+Java_com_opalite_edge_MainActivity_sonarSetFalloffNative(
+    JNIEnv* /*env*/, jclass /*clazz*/, jfloat n) {
+  std::lock_guard<std::mutex> lock(g_sonarMtx);
+  if (g_sonar) g_sonar->setFalloffExponent(n);
+}
+
+JNIEXPORT void JNICALL
 Java_com_opalite_edge_MainActivity_sonarUpdateNative(
     JNIEnv* /*env*/, jclass /*clazz*/,
     jfloat leftScore,  jboolean leftValid,
@@ -164,6 +177,25 @@ Java_com_opalite_edge_MainActivity_sonarUpdateNative(
   g_sonar->setLeft(leftScore,    leftValid   == JNI_TRUE);
   g_sonar->setCenter(centerScore, centerValid == JNI_TRUE);
   g_sonar->setRight(rightScore,   rightValid  == JNI_TRUE);
+}
+
+// Pull the latest smoothed per-sector amplitudes (0..1) the audio thread
+// most recently rendered. Filled into a caller-provided float[3] to avoid
+// per-call allocation. UI polls this ~20 Hz to drive the live meter bars.
+JNIEXPORT void JNICALL
+Java_com_opalite_edge_MainActivity_sonarGetAmpsNative(
+    JNIEnv* env, jclass /*clazz*/, jfloatArray out3) {
+  if (out3 == nullptr) return;
+  float amps[3] = { 0.0f, 0.0f, 0.0f };
+  {
+    std::lock_guard<std::mutex> lock(g_sonarMtx);
+    if (g_sonar) {
+      amps[0] = g_sonar->leftAmp();
+      amps[1] = g_sonar->centerAmp();
+      amps[2] = g_sonar->rightAmp();
+    }
+  }
+  env->SetFloatArrayRegion(out3, 0, 3, amps);
 }
 
 // ---------------------------------------------------------------------------

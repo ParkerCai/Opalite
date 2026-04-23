@@ -1,130 +1,397 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:background="#000000"
+    android:orientation="vertical">
+
+    <!-- Scrollable content area — expands to fill above the pinned button. -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:padding="8dp">
 
-        <TextView
-            android:id="@+id/titleText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Opalite Edge"
-            android:textSize="22sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Status: idle"
-            android:textSize="14sp" />
-
-        <TextView
-            android:id="@+id/freeSpaceText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:fontFamily="monospace"
-            android:text="L --  C --  R --    dir --"
-            android:textSize="14sp" />
-
+        <!-- Header row: title left, status right. -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/startButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="Start" />
-
-            <Button
-                android:id="@+id/stopButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:enabled="false"
-                android:text="Stop" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/describeButton"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:enabled="false"
-            android:text="Describe what's ahead" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:orientation="horizontal">
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
             <TextView
+                android:id="@+id/titleText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Sonar volume"
-                android:textSize="14sp" />
+                android:text="Opalite"
+                android:textSize="18sp"
+                android:textStyle="bold" />
 
-            <SeekBar
-                android:id="@+id/volumeSeek"
+            <TextView
+                android:id="@+id/statusText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:max="100"
-                android:progress="25" />
+                android:layout_marginStart="12dp"
+                android:gravity="end"
+                android:text="idle"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <!-- Row 1: Color | Depth -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Color"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/colorImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="96dp"
+                    android:adjustViewBounds="true"
+                    android:background="#000000"
+                    android:scaleType="fitCenter" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="4dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Depth"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/depthImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="96dp"
+                    android:adjustViewBounds="true"
+                    android:background="#000000"
+                    android:scaleType="fitCenter" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Row 2: Top-Down | Sonar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:baselineAligned="false"
+            android:orientation="horizontal">
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Top-down (X-Z)"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/topDownImage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="180dp"
+                    android:adjustViewBounds="true"
+                    android:background="#000000"
+                    android:scaleType="fitCenter" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="6dp"
+                android:orientation="vertical">
+
+                <!-- Sonar header: label + on/off switch -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="Sonar"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <Switch
+                        android:id="@+id/sonarOnSwitch"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="" />
+                </LinearLayout>
+
+                <!-- Meters -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="14dp"
+                        android:layout_height="wrap_content"
+                        android:text="L"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <ProgressBar
+                        android:id="@+id/leftMeter"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="14dp"
+                        android:layout_weight="1"
+                        android:max="1000"
+                        android:progress="0"
+                        android:progressTint="#FFD740"
+                        android:progressBackgroundTint="#444444" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="14dp"
+                        android:layout_height="wrap_content"
+                        android:text="C"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <ProgressBar
+                        android:id="@+id/centerMeter"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="14dp"
+                        android:layout_weight="1"
+                        android:max="1000"
+                        android:progress="0"
+                        android:progressTint="#FFD740"
+                        android:progressBackgroundTint="#444444" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="14dp"
+                        android:layout_height="wrap_content"
+                        android:text="R"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <ProgressBar
+                        android:id="@+id/rightMeter"
+                        style="?android:attr/progressBarStyleHorizontal"
+                        android:layout_width="0dp"
+                        android:layout_height="14dp"
+                        android:layout_weight="1"
+                        android:max="1000"
+                        android:progress="0"
+                        android:progressTint="#FFD740"
+                        android:progressBackgroundTint="#444444" />
+                </LinearLayout>
+
+                <!-- Live readout moved in here (was a separate row). -->
+                <TextView
+                    android:id="@+id/freeSpaceText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:fontFamily="monospace"
+                    android:text="L -- C -- R --\ndir --  fwd --"
+                    android:textSize="10sp" />
+
+                <!-- Volume slider -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="52dp"
+                        android:layout_height="wrap_content"
+                        android:text="volume"
+                        android:textSize="10sp" />
+
+                    <SeekBar
+                        android:id="@+id/volumeSeek"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="25" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="52dp"
+                        android:layout_height="wrap_content"
+                        android:text="pitch"
+                        android:textSize="10sp" />
+
+                    <SeekBar
+                        android:id="@+id/pitchSeek"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="10" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="14dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="52dp"
+                        android:layout_height="wrap_content"
+                        android:text="falloff"
+                        android:textSize="10sp" />
+
+                    <SeekBar
+                        android:id="@+id/falloffSeek"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:max="100"
+                        android:progress="30" />
+                </LinearLayout>
+            </LinearLayout>
         </LinearLayout>
 
         <Switch
             android:id="@+id/speakSwitch"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="6dp"
             android:checked="true"
             android:text="Speak response" />
 
-        <LinearLayout
+        <!-- Dev / debug section: Brain host override + rolling log. Hidden
+             by default; tap the toggle to expand. -->
+        <Button
+            android:id="@+id/debugToggle"
+            style="?android:attr/buttonStyleSmall"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:orientation="horizontal">
+            android:layout_marginTop="8dp"
+            android:text="Show debug"
+            android:textSize="11sp" />
+
+        <LinearLayout
+            android:id="@+id/debugPanel"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Brain"
+                    android:textSize="11sp" />
+
+                <EditText
+                    android:id="@+id/hostEdit"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="8dp"
+                    android:inputType="textUri"
+                    android:textSize="11sp"
+                    android:text="http://192.168.86.21:11434" />
+            </LinearLayout>
 
             <TextView
-                android:layout_width="wrap_content"
+                android:id="@+id/logText"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Brain host"
-                android:textSize="14sp" />
-
-            <EditText
-                android:id="@+id/hostEdit"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="8dp"
-                android:inputType="textUri"
-                android:text="http://192.168.86.21:11434" />
+                android:layout_marginTop="6dp"
+                android:fontFamily="monospace"
+                android:textSize="9sp"
+                android:text="" />
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/logText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:fontFamily="monospace"
-            android:textSize="12sp"
-            android:text="" />
     </LinearLayout>
-</ScrollView>
+    </ScrollView>
+
+    <!-- Pinned bottom Describe button. Full-width, accessible finger target.
+         Bottom corners rounded to match the phone's display corner curve. -->
+    <Button
+        android:id="@+id/describeButton"
+        android:layout_width="match_parent"
+        android:layout_height="400dp"
+        android:background="@drawable/describe_button_bg"
+        android:enabled="false"
+        android:text="Describe"
+        android:textColor="@color/describe_button_text"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+</LinearLayout>
