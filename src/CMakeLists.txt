@@ -52,6 +52,20 @@ FetchContent_Declare(imgui
 )
 FetchContent_MakeAvailable(imgui)
 
+# Phase 2B brain client: cpp-httplib (single-header HTTP) + nlohmann/json
+# for talking to local Ollama at http://localhost:11434.
+FetchContent_Declare(cpp_httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.18.0
+)
+FetchContent_MakeAvailable(cpp_httplib)
+
+FetchContent_Declare(nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # miniaudio (single-header, Windows / Linux / Android / macOS, MIT-0).
 # Used by the Phase 2A sonar layer. Populate only - no CMakeLists in the
 # repo root - and include the source dir directly. The
@@ -79,6 +93,7 @@ set(OPALITE_SOURCES
     topdown.cpp
     free_space.cpp
     sonar.cpp
+    brain_client.cpp
 )
 
 # Dear ImGui sources. Compiled directly into the executable - ImGui ships no
@@ -100,6 +115,8 @@ target_link_libraries(opalite
     glfw
     OpenGL::GL
     dwmapi
+    httplib::httplib
+    nlohmann_json::nlohmann_json
 )
 
 # Large FetchContent projects overflow the default PDB; disable to avoid

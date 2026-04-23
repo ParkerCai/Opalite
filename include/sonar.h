@@ -69,7 +69,7 @@ private:
   ma_device* device_ = nullptr;
   std::atomic<bool> running_{ false };
   std::atomic<bool> enabled_{ true };
-  std::atomic<float> volume_{ 0.5f };
+  std::atomic<float> volume_{ 0.25f };
   std::atomic<float> carrierHz_{ 110.0f };
   std::atomic<float> falloffExponent_{ 4.0f };
 

@@ -41,6 +41,8 @@
 #include <librealsense2/rsutil.h>
 #include <opencv2/imgproc.hpp>
 
+#include "brain_client.h"
+
 namespace {
 
   constexpr const char* GLSL_VERSION = "#version 330 core";
@@ -121,8 +123,9 @@ int main() {
 
   // Three stacked rows (Top-Down, Color+Depth, Controls) need enough
   // vertical room so the Controls pane isn't cropped on first launch.
-  const int winInitW = static_cast<int>(1500.0f * uiScale);
-  const int winInitH = static_cast<int>(1300.0f * uiScale);
+  // Roughly half the old footprint after the 2B layout compaction.
+  const int winInitW = static_cast<int>(750.0f * uiScale);
+  const int winInitH = static_cast<int>(750.0f * uiScale);
   GLFWwindow* window = glfwCreateWindow(winInitW, winInitH, "Opalite",
     nullptr, nullptr);
   if (!window) {
@@ -161,6 +164,13 @@ int main() {
   std::println("Opalite Phase 1 (step 5): camera color {}x{} depth {}x{}, USB={}",
     camera.colorWidth(), camera.colorHeight(),
     camera.depthWidth(), camera.depthHeight(), camera.usbType());
+
+  // Phase 2B-4: brain state lives across frames so the Brain pane can
+  // show the last response even after the button is released.
+  BrainConfig brainCfg;
+  BrainResponse brainResp;
+  bool brainEverIssued = false;
+  std::string brainPrompt = "Briefly describe what's directly ahead. One sentence.";
 
   const GLuint colorTex = createTexture();
   const GLuint depthTex = createTexture();
@@ -351,15 +361,15 @@ int main() {
     const float tdH = (topdownBgr.rows > 0)
       ? static_cast<float>(topdownBgr.rows) : 1.0f;
     const float paneChromeH = 36.0f * uiScale;
-    const float minControlsH = 200.0f * uiScale;
+    const float minControlsH = 140.0f * uiScale;
 
     const float middleRowH = halfW * (srcH / srcW) + paneChromeH;
-    // Top-down shares the Color/Depth row height and stretches the
-    // occupancy map to the full pane width (user prefers a wide banner
-    // over an aspect-fit image with dead space on the sides).
+    // New layout: row 1 Color+Depth, row 2 Top-Down+Brain (same height
+    // as row 1), row 3 Controls spanning the bottom.
     const float topdownH = middleRowH;
-    const float middleTop = topdownH;
-    const float controlsTop = middleTop + middleRowH;
+    const float colorDepthTop = 0.0f;
+    const float secondRowTop = middleRowH;
+    const float controlsTop = secondRowTop + topdownH;
     const float controlsH = std::max(minControlsH, winH - controlsTop);
     (void)tdW; (void)tdH;  // unused now that we stretch the top-down image
     constexpr ImGuiWindowFlags kFixedFlags =
@@ -383,22 +393,8 @@ int main() {
       return ImVec2(avail.x, avail.x / srcAspect);
       };
 
-    // Top-Down pane (full-width top row). Image stretches to fill the
-    // entire content region - aspect is intentionally ignored so the
-    // occupancy map reads as a banner across the top.
-    ImGui::SetNextWindowPos(ImVec2(0.0f, 0.0f), ImGuiCond_Always);
-    ImGui::SetNextWindowSize(ImVec2(winW, topdownH), ImGuiCond_Always);
-    ImGui::Begin("Top-Down", nullptr, kFixedFlags);
-    if (!topdownBgr.empty()) {
-      ImGui::Image(topdownHandle, ImGui::GetContentRegionAvail());
-    }
-    else {
-      ImGui::Text("waiting for top-down...");
-    }
-    ImGui::End();
-
-    // Color pane (middle-left).
-    ImGui::SetNextWindowPos(ImVec2(0.0f, middleTop), ImGuiCond_Always);
+    // Row 1: Color (left half) + Depth (right half).
+    ImGui::SetNextWindowPos(ImVec2(0.0f, colorDepthTop), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(halfW, middleRowH), ImGuiCond_Always);
     ImGui::Begin("Color", nullptr, kFixedFlags);
     if (camera.colorWidth() > 0) {
@@ -412,8 +408,7 @@ int main() {
     }
     ImGui::End();
 
-    // Depth pane (middle-right).
-    ImGui::SetNextWindowPos(ImVec2(halfW, middleTop), ImGuiCond_Always);
+    ImGui::SetNextWindowPos(ImVec2(halfW, colorDepthTop), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(winW - halfW, middleRowH), ImGuiCond_Always);
     ImGui::Begin("Depth", nullptr, kFixedFlags);
     if (camera.depthWidth() > 0) {
@@ -427,16 +422,78 @@ int main() {
     }
     ImGui::End();
 
-    // Controls, spanning the bottom.
+    // Row 2 left: Top-Down occupancy map.
+    ImGui::SetNextWindowPos(ImVec2(0.0f, secondRowTop), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(halfW, topdownH), ImGuiCond_Always);
+    ImGui::Begin("Top-Down", nullptr, kFixedFlags);
+    if (!topdownBgr.empty()) {
+      ImGui::Image(topdownHandle, ImGui::GetContentRegionAvail());
+    }
+    else {
+      ImGui::Text("waiting for top-down...");
+    }
+    ImGui::End();
+
+    // Row 2 right: Brain pane (semantic overlay).
+    ImGui::SetNextWindowPos(ImVec2(halfW, secondRowTop), ImGuiCond_Always);
+    ImGui::SetNextWindowSize(ImVec2(winW - halfW, topdownH), ImGuiCond_Always);
+    ImGui::Begin("Brain", nullptr, kFixedFlags);
+    ImGui::TextDisabled("model: %s", brainCfg.model.c_str());
+    const bool haveFrame = !colorBgr.empty();
+    if (ImGui::Button("Ask") && haveFrame) {
+      // Step 2B-4: synchronous blocking call. UI freezes 1-3 s during
+      // the VLM forward pass; 2B-5 moves this onto a worker thread.
+      brainResp = askOllama(brainPrompt, colorBgr, brainCfg);
+      brainEverIssued = true;
+      std::fprintf(stderr, "Brain resp: ok=%d ms=%.0f len=%zu err='%s'\n",
+        brainResp.ok, brainResp.roundtripMs, brainResp.text.size(),
+        brainResp.error.c_str());
+      std::fflush(stderr);
+    }
+    ImGui::SameLine();
+    if (!haveFrame) {
+      ImGui::TextDisabled("waiting for first frame...");
+    } else if (!brainEverIssued) {
+      ImGui::TextDisabled("idle");
+    } else if (brainResp.ok) {
+      ImGui::TextDisabled("done (%.2f s, %zu chars)",
+        brainResp.roundtripMs / 1000.0, brainResp.text.size());
+    } else {
+      ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
+        "failed (%.0f ms)", brainResp.roundtripMs);
+    }
+    ImGui::Separator();
+    ImGui::BeginChild("brain_resp", ImVec2(0, 0), true,
+      ImGuiWindowFlags_HorizontalScrollbar);
+    if (brainEverIssued && brainResp.ok) {
+      if (brainResp.text.empty()) {
+        ImGui::TextDisabled("[empty response - try bumping num_predict]");
+      } else {
+        ImGui::TextWrapped("%s", brainResp.text.c_str());
+      }
+    } else if (brainEverIssued && !brainResp.error.empty()) {
+      ImGui::TextWrapped("%s", brainResp.error.c_str());
+    } else {
+      ImGui::TextDisabled("Press Ask to describe the current view.");
+    }
+    ImGui::EndChild();
+    ImGui::End();
+
+    // Row 3: Controls spanning the full bottom.
     ImGui::SetNextWindowPos(ImVec2(0.0f, controlsTop), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(winW, controlsH), ImGuiCond_Always);
     ImGui::Begin("Controls", nullptr, kFixedFlags);
-    ImGui::Columns(3, "controls_cols", false);
-    ImGui::Text("Render: %.1f FPS", ImGui::GetIO().Framerate);
-    ImGui::Text("Camera: %.1f FPS", cameraFps.ewma);
-    ImGui::Text("Latency: med %.1f ms  p95 %.1f ms",
+    const float sliderW = 120.0f * uiScale;
+    ImGui::Columns(4, "controls_cols", false);
+
+    // --- Column 1: System + camera + save ---
+    ImGui::SeparatorText("System");
+    ImGui::Text("R %.0f  C %.0f fps  USB %s",
+      ImGui::GetIO().Framerate, cameraFps.ewma, camera.usbType().c_str());
+    ImGui::Text("lat med %.1f  p95 %.1f ms",
       latency.percentile(0.5), latency.percentile(0.95));
-    ImGui::Text("USB:    %s", camera.usbType().c_str());
+    ImGui::Text("%dx%d  %.2f-%.2f m",
+      camera.colorWidth(), camera.colorHeight(), depthMinM, depthMaxM);
     if (ImGui::Button("Quit")) shouldClose = true;
     ImGui::SameLine();
     if (ImGui::Button("Save frame") && !colorBgr.empty() && !depthMm16u.empty()) {
@@ -451,98 +508,93 @@ int main() {
       const bool okColor = cv::imwrite(colorPath.string(), colorBgr);
       const bool okDepth = cv::imwrite(depthPath.string(), depthMm16u);
       lastSavedLabel = (okColor && okDepth)
-        ? ("Saved " + std::string(stamp))
-        : "Save failed - see stderr";
+        ? ("saved " + std::string(stamp))
+        : "save failed";
       if (!okColor) std::fprintf(stderr, "Failed to write %s\n",
         colorPath.string().c_str());
       if (!okDepth) std::fprintf(stderr, "Failed to write %s\n",
         depthPath.string().c_str());
     }
     if (!lastSavedLabel.empty()) {
-      ImGui::Text("%s", lastSavedLabel.c_str());
+      ImGui::SameLine();
+      ImGui::TextDisabled("%s", lastSavedLabel.c_str());
     }
     ImGui::NextColumn();
-    ImGui::Text("Color:  %d x %d", camera.colorWidth(), camera.colorHeight());
-    ImGui::Text("Depth:  %d x %d", camera.depthWidth(), camera.depthHeight());
-    ImGui::Text("Range:  %.2f m - %.2f m", depthMinM, depthMaxM);
-    ImGui::Separator();
-    ImGui::Text("Free space");
-    ImGui::Checkbox("enabled##free", &freeCfg.enabled);
-    ImGui::SetNextItemWidth(200.0f * uiScale);
-    ImGui::SliderFloat("blocked (m)", &freeCfg.blockedThresholdM,
-      0.3f, 2.0f, "%.2f");
-    ImGui::SetNextItemWidth(200.0f * uiScale);
-    ImGui::SliderFloat("horizon (m)", &freeCfg.clearHorizonM,
-      1.0f, 6.0f, "%.1f");
-    ImGui::SetNextItemWidth(200.0f * uiScale);
-    ImGui::SliderFloat("span", &freeCfg.coneXFrac, 0.30f, 1.00f, "%.2f");
-    ImGui::SetNextItemWidth(200.0f * uiScale);
-    ImGui::SliderFloat("beam", &freeCfg.centerBeamFrac, 0.05f, 0.50f, "%.2f");
+
+    // --- Column 2: Free space ---
+    ImGui::SeparatorText("Free space");
+    ImGui::Checkbox("on##free", &freeCfg.enabled);
+    ImGui::SetNextItemWidth(sliderW);
+    ImGui::SliderFloat("block (m)##f", &freeCfg.blockedThresholdM, 0.3f, 2.0f, "%.2f");
+    ImGui::SetNextItemWidth(sliderW);
+    ImGui::SliderFloat("horiz (m)##f", &freeCfg.clearHorizonM, 1.0f, 6.0f, "%.1f");
+    ImGui::SetNextItemWidth(sliderW);
+    ImGui::SliderFloat("span##f", &freeCfg.coneXFrac, 0.30f, 1.00f, "%.2f");
+    ImGui::SetNextItemWidth(sliderW);
+    ImGui::SliderFloat("beam##f", &freeCfg.centerBeamFrac, 0.05f, 0.50f, "%.2f");
     if (freeCfg.centerBeamFrac > freeCfg.coneXFrac - 0.04f) {
       freeCfg.centerBeamFrac = std::max(0.05f, freeCfg.coneXFrac - 0.04f);
     }
     if (freeCfg.enabled) {
-      auto sectorText = [](const char* name, const SectorClearance& s) {
+      auto sectorInline = [](const char* name, const SectorClearance& s) {
         const ImVec4 col = s.blocked
           ? ImVec4(1.0f, 0.3f, 0.3f, 1.0f)
           : ImVec4(0.3f + 0.7f * (1.0f - s.score),
                    0.3f + 0.7f * s.score, 0.3f, 1.0f);
-        ImGui::TextColored(col, "%s  %.2f m  score %.2f%s",
-          name, s.nearDepthM, s.score, s.blocked ? "  [BLOCKED]" : "");
+        ImGui::TextColored(col, "%s %.2f", name, s.nearDepthM);
       };
-      sectorText("L", freeResult.left);
-      sectorText("C", freeResult.center);
-      sectorText("R", freeResult.right);
+      sectorInline("L", freeResult.left);  ImGui::SameLine();
+      sectorInline("C", freeResult.center); ImGui::SameLine();
+      sectorInline("R", freeResult.right);
       const char* dirName =
         freeResult.suggested == Direction::Left ? "LEFT"
         : freeResult.suggested == Direction::Right ? "RIGHT" : "CENTER";
-      ImGui::Text("Forward: %.2f m   Suggested: %s",
+      ImGui::Text("fwd %.2f m  ->  %s",
         freeResult.nearestForwardM, dirName);
     } else {
-      ImGui::TextDisabled("(analyzer off)");
-    }
-    ImGui::Separator();
-    ImGui::Text("Sonar  (M to mute)");
-    {
-      bool sonarOn = sonar.isEnabled();
-      if (ImGui::Checkbox("enabled##sonar", &sonarOn)) sonar.setEnabled(sonarOn);
-      float sonarVol = sonar.volume();
-      ImGui::SetNextItemWidth(200.0f * uiScale);
-      if (ImGui::SliderFloat("volume", &sonarVol, 0.0f, 1.0f, "%.2f")) {
-        sonar.setVolume(sonarVol);
-      }
-      float sonarHz = sonar.carrierHz();
-      ImGui::SetNextItemWidth(200.0f * uiScale);
-      if (ImGui::SliderFloat("pitch (Hz)", &sonarHz, 50.0f, 600.0f, "%.0f")) {
-        sonar.setCarrierHz(sonarHz);
-      }
-      float sonarFalloff = sonar.falloffExponent();
-      ImGui::SetNextItemWidth(200.0f * uiScale);
-      if (ImGui::SliderFloat("falloff", &sonarFalloff, 2.0f, 8.0f, "%.1f")) {
-        sonar.setFalloffExponent(sonarFalloff);
-      }
-      // Per-sector meters - read the audio thread's most recent smoothed
-      // amplitudes so the bars match what's actually playing.
-      const ImVec2 meterSize(140.0f * uiScale, 6.0f * uiScale);
-      ImGui::Text("L");
-      ImGui::SameLine();
-      ImGui::ProgressBar(sonar.leftAmp(),  meterSize, "");
-      ImGui::Text("C");
-      ImGui::SameLine();
-      ImGui::ProgressBar(sonar.centerAmp(), meterSize, "");
-      ImGui::Text("R");
-      ImGui::SameLine();
-      ImGui::ProgressBar(sonar.rightAmp(), meterSize, "");
-      ImGui::TextDisabled(sonar.isRunning() ? "(audio device up)" : "(no audio device)");
+      ImGui::TextDisabled("(off)");
     }
     ImGui::NextColumn();
-    ImGui::Text("Top-down");
-    ImGui::SetNextItemWidth(200.0f * uiScale);
-    ImGui::SliderFloat("extent (m)", &topdownCfg.extentM, 2.0f, 10.0f, "%.1f");
-    ImGui::SetNextItemWidth(200.0f * uiScale);
-    ImGui::SliderFloat("cell (m)", &topdownCfg.cellM, 0.01f, 0.10f, "%.3f");
-    ImGui::SetNextItemWidth(200.0f * uiScale);
-    ImGui::SliderFloat("min Z (m)", &topdownCfg.minZM, 0.10f, 1.00f, "%.2f");
+
+    // --- Column 3: Sonar ---
+    ImGui::SeparatorText("Sonar (M to mute)");
+    {
+      bool sonarOn = sonar.isEnabled();
+      if (ImGui::Checkbox("on##sonar", &sonarOn)) sonar.setEnabled(sonarOn);
+      ImGui::SameLine();
+      ImGui::TextDisabled(sonar.isRunning() ? "(audio up)" : "(no audio)");
+      float sonarVol = sonar.volume();
+      ImGui::SetNextItemWidth(sliderW);
+      if (ImGui::SliderFloat("vol##s", &sonarVol, 0.0f, 1.0f, "%.2f"))
+        sonar.setVolume(sonarVol);
+      float sonarHz = sonar.carrierHz();
+      ImGui::SetNextItemWidth(sliderW);
+      if (ImGui::SliderFloat("pitch##s", &sonarHz, 50.0f, 600.0f, "%.0f Hz"))
+        sonar.setCarrierHz(sonarHz);
+      float sonarFalloff = sonar.falloffExponent();
+      ImGui::SetNextItemWidth(sliderW);
+      if (ImGui::SliderFloat("falloff##s", &sonarFalloff, 2.0f, 8.0f, "%.1f"))
+        sonar.setFalloffExponent(sonarFalloff);
+      // L / C / R mini meters inline on one row.
+      const ImVec2 meterSize(36.0f * uiScale, 6.0f * uiScale);
+      ImGui::Text("L"); ImGui::SameLine();
+      ImGui::ProgressBar(sonar.leftAmp(),  meterSize, ""); ImGui::SameLine();
+      ImGui::Text("C"); ImGui::SameLine();
+      ImGui::ProgressBar(sonar.centerAmp(), meterSize, ""); ImGui::SameLine();
+      ImGui::Text("R"); ImGui::SameLine();
+      ImGui::ProgressBar(sonar.rightAmp(), meterSize, "");
+    }
+    ImGui::NextColumn();
+
+    // --- Column 4: Top-down ---
+    ImGui::SeparatorText("Top-down");
+    ImGui::SetNextItemWidth(sliderW);
+    ImGui::SliderFloat("extent (m)##t", &topdownCfg.extentM, 2.0f, 10.0f, "%.1f");
+    ImGui::SetNextItemWidth(sliderW);
+    ImGui::SliderFloat("cell (m)##t", &topdownCfg.cellM, 0.01f, 0.10f, "%.3f");
+    ImGui::SetNextItemWidth(sliderW);
+    ImGui::SliderFloat("min Z (m)##t", &topdownCfg.minZM, 0.10f, 1.00f, "%.2f");
+
     ImGui::Columns(1);
     ImGui::End();
 
