@@ -4,12 +4,25 @@ Android app that turns a D435i + phone into a handheld obstacle-aware edge devic
 
 ## Architecture
 
-- Java `MainActivity` owns the librealsense `Pipeline` and a single capture thread.
+- Java `MainActivity` owns the librealsense `Pipeline` and a single capture thread. Frames are aligned depth→color with a `HoleFillingFilter` applied so the two panes share a frustum and the parallax shadow next to close objects is filled in.
 - Each depth frame is handed to `analyzeFreeSpaceNative`. Results drive:
-  - `sonarUpdateNative` — continuous stereo hum, louder as clearance drops, panned per sector.
+  - `sonarUpdateNative` — continuous stereo hum, louder as clearance drops, panned per sector. Live L / C / R amplitude is polled back at 20 Hz via `sonarGetAmpsNative` and rendered as three ProgressBar meters next to the top-down pane.
   - Android `TextToSpeech` — one-shot "Blocked at X meters" when center crosses the threshold (3 s cooldown).
-- A Describe button JPEG-encodes the latest color frame and calls `askBrainNative` on a worker thread; the text response is spoken via TTS.
-- Only the "Speak" switch, volume slider, and Brain host field are user-facing runtime settings.
+- Four live panes mirror the Windows layout: Color and Depth on the top row, Top-Down (X-Z occupancy) and Sonar controls on the second row. The Color pane has L / C / R ROI overlays and a "fwd X.XX m" text readout; the Top-Down pane has clearance-colored cone wedges for the three sectors.
+- A full-width 400 dp **Describe** button pinned to the bottom. A tap JPEG-encodes the latest color frame and calls `askBrainNative` on a worker thread; the text response is spoken via TTS. Haptic feedback: a short 30 ms buzz on touch-down, a longer 150 ms buzz on release.
+- **Long-press** the Describe button to record a spoken question with Android `SpeechRecognizer`. The transcript either (a) matches a local voice command (see below) and mutates app state directly, or (b) is appended to the Brain prompt so you can ask things like "what's on the desk in front of me" and get a spoken reply.
+- Runtime settings exposed: Sonar on/off switch, volume / pitch / falloff sliders, Speak-response switch, and a collapsible debug panel with the Brain host field + rolling log.
+
+## Voice commands (long-press Describe)
+
+Recognized phrases are matched before the Brain call. If the phrase doesn't match a command, the transcript is sent to Gemma as the Describe prompt.
+
+| Phrase | Effect |
+| --- | --- |
+| "turn off sonar" / "sonar off" / "mute sonar" | Switch Sonar off. |
+| "turn on sonar" / "sonar on" / "unmute sonar" | Switch Sonar on. |
+| "turn off voice" / "voice off" / "stop talking" | Disable TTS (Speak response off). |
+| "turn on voice" / "voice on" | Enable TTS. |
 
 ## Build prerequisites
 
@@ -21,7 +34,11 @@ Android app that turns a D435i + phone into a handheld obstacle-aware edge devic
 ## Runtime prerequisites
 
 - USB-OTG cable that provides both USB-3 bandwidth and enough power for the D435i (>400 mA). Most generic dongles are USB-2; depth will either be slow or fail outright on those.
-- Phone on the same Wi-Fi network as a machine running `ollama serve` with `gemma4:e2b` pulled, if you want the Describe button to work. Sonar and TTS obstacle alerts run fully offline.
+- Phone on the same Wi-Fi network as a machine running `ollama serve` with `gemma4:e2b` pulled, if you want the Describe button to work. The Ollama server must bind to `0.0.0.0` (set `OLLAMA_HOST=0.0.0.0:11434` on the host) so the phone can reach it over LAN. Sonar, TTS obstacle alerts, and voice commands all run fully offline.
+
+## Permissions
+
+On first launch the app requests `CAMERA` + `RECORD_AUDIO` in a single dialog. `VIBRATE` is a normal permission granted at install time. The app also registers a USB-attach intent-filter so plugging the D435i back in brings Opalite to the foreground and auto-retries the pipeline without a manual relaunch.
 
 ## Layout of shared C++
 
@@ -35,14 +52,24 @@ The JNI entry points are all in `app/src/main/cpp/jni_bridge.cpp`.
 
 ## Running
 
-1. Plug the D435i into the phone via USB-OTG. Android shows a "device attached" prompt; tap "OK" / "Always use this app" so the USB permission grants.
-2. Launch Opalite Edge. Plug in headphones; the Sonar hum will otherwise come out of the phone's speaker.
-3. Tap **Start**. The capture loop begins and the free-space line updates (`L 0.81  C 0.62  R 0.94  dir CENTER  fwd 1.80m`).
-4. Walk toward a wall: the hum grows louder and pulses faster; at <0.8 m the phone says "Blocked at 0.6 meters."
-5. Tap **Describe what's ahead** for an on-demand VLM caption. Configure the Brain host to `http://<pc-ip>:11434` once; it's remembered per launch.
+1. Plug the D435i into the phone via USB-OTG. Android shows a "device attached" prompt; tap "OK" / "Always use this app" so the USB permission grants. The capture loop auto-starts.
+2. Plug in headphones; the Sonar hum will otherwise come out of the phone's speaker.
+3. Walk toward a wall: the hum grows louder and pulses faster; the L / C / R meters track live amplitude; at <0.8 m the phone says "Blocked at 0.6 meters."
+4. **Tap** Describe for an on-demand VLM caption of what's ahead.
+5. **Long-press** Describe, say a question or a voice command, release. The transcript either flips a setting locally or is forwarded to Gemma and the reply spoken.
+6. Expand the debug panel ("Show debug") to edit the Brain host (`http://<pc-ip>:11434`) — it persists across launches via `SharedPreferences`.
+
+## Latency log
+
+Every Brain round-trip is appended on-device to `/storage/emulated/0/Android/data/com.opalite.edge/files/brain_latency.csv` with the same schema the desktop build uses (`wall_ms, roundtrip_ms, ok, mode`). Pull with:
+
+```bash
+adb pull /storage/emulated/0/Android/data/com.opalite.edge/files/brain_latency.csv data/brain_latency_android.csv
+```
 
 ## Troubleshooting
 
 - No depth when you plug the camera in → cable is likely USB-2. Test with Intel's reference test app before suspecting code.
 - `libopaliteedge.so` fails to load → NDK not installed, or `abiFilters` in `app/build.gradle` doesn't match the phone's ABI. Default is `arm64-v8a`.
-- Describe returns `ERROR: no response` → Brain host unreachable. Confirm `curl -X POST http://<pc-ip>:11434/api/generate -d '{"model":"gemma4:e2b","prompt":"hi","stream":false}'` works from the phone's Wi-Fi network; also check Windows Firewall.
+- Describe returns `ERROR: no response` → Brain host unreachable. Confirm `curl -X POST http://<pc-ip>:11434/api/generate -d '{"model":"gemma4:e2b","prompt":"hi","stream":false}'` works from the phone's Wi-Fi network; also check that Ollama was started with `OLLAMA_HOST=0.0.0.0:11434` and that the host firewall allows inbound 11434.
+- Long-press records nothing / "voice: no results" → no on-device recognizer available. Install Google's Speech Services from the Play Store, or grant the app mic permission if the first dialog was denied.

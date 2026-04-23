@@ -14,6 +14,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
@@ -104,7 +106,11 @@ public class MainActivity extends Activity {
     // --- UI ----------------------------------------------------------------
 
     private TextView statusText;
-    private TextView freeSpaceText;
+    private TextView freeLText;
+    private TextView freeCText;
+    private TextView freeRText;
+    private TextView freeDirText;
+    private TextView freeFwdText;
     private TextView logText;
     private Button describeButton;
     private Button debugToggle;
@@ -120,6 +126,7 @@ public class MainActivity extends Activity {
     private Switch sonarOnSwitch;
     private SeekBar pitchSeek;
     private SeekBar falloffSeek;
+    private Vibrator vibrator;
 
     // Overlay drawing scratch.
     private final Paint roiPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -251,7 +258,11 @@ public class MainActivity extends Activity {
         }
 
         statusText = findViewById(R.id.statusText);
-        freeSpaceText = findViewById(R.id.freeSpaceText);
+        freeLText = findViewById(R.id.freeLText);
+        freeCText = findViewById(R.id.freeCText);
+        freeRText = findViewById(R.id.freeRText);
+        freeDirText = findViewById(R.id.freeDirText);
+        freeFwdText = findViewById(R.id.freeFwdText);
         logText = findViewById(R.id.logText);
         describeButton = findViewById(R.id.describeButton);
         debugToggle = findViewById(R.id.debugToggle);
@@ -267,6 +278,7 @@ public class MainActivity extends Activity {
         sonarOnSwitch = findViewById(R.id.sonarOnSwitch);
         pitchSeek = findViewById(R.id.pitchSeek);
         falloffSeek = findViewById(R.id.falloffSeek);
+        vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
 
         sonarOnSwitch.setOnCheckedChangeListener((btn, checked) ->
             sonarSetEnabledNative(checked));
@@ -324,7 +336,6 @@ public class MainActivity extends Activity {
         debugToggle.setOnClickListener(v -> {
             final boolean showing = debugPanel.getVisibility() == android.view.View.VISIBLE;
             debugPanel.setVisibility(showing ? android.view.View.GONE : android.view.View.VISIBLE);
-            debugToggle.setText(showing ? "Show debug" : "Hide debug");
         });
 
         // Restore the last Brain host the user typed; persist every edit.
@@ -585,11 +596,13 @@ public class MainActivity extends Activity {
                 // ourselves so the user gets pressed feedback even when
                 // holding through the long-press threshold.
                 v.setPressed(true);
+                buzz(30);
                 uiHandler.postDelayed(startLongPressRecognition, LONG_PRESS_THRESHOLD_MS);
                 return true;
             case android.view.MotionEvent.ACTION_UP:
             case android.view.MotionEvent.ACTION_CANCEL:
                 v.setPressed(false);
+                buzz(150);
                 if (!longPressActive) return true;
                 longPressActive = false;
                 uiHandler.removeCallbacks(startLongPressRecognition);
@@ -905,9 +918,18 @@ public class MainActivity extends Activity {
         lastWasBlocked = blockedNow;
 
         final String dirName = sugg == 0 ? "LEFT" : sugg == 2 ? "RIGHT" : "CENTER";
-        uiHandler.post(() -> freeSpaceText.setText(String.format(Locale.US,
-            "L %.2f C %.2f R %.2f\ndir %s  fwd %.2fm",
-            lScore, cScore, rScore, dirName, cNearM)));
+        final String lStr = String.format(Locale.US, "L %.2f", lScore);
+        final String cStr = String.format(Locale.US, "C %.2f", cScore);
+        final String rStr = String.format(Locale.US, "R %.2f", rScore);
+        final String dStr = String.format(Locale.US, "dir %s", dirName);
+        final String fStr = String.format(Locale.US, "fwd %.2fm", cNearM);
+        uiHandler.post(() -> {
+            freeLText.setText(lStr);
+            freeCText.setText(cStr);
+            freeRText.setText(rStr);
+            freeDirText.setText(dStr);
+            freeFwdText.setText(fStr);
+        });
     }
 
     private void snapshotColorFrame(Frame colorF) {
@@ -1386,5 +1408,15 @@ public class MainActivity extends Activity {
             final CharSequence prev = logText.getText();
             logText.setText(prev + "\n" + line);
         });
+    }
+
+    private void buzz(long ms) {
+        if (vibrator == null || !vibrator.hasVibrator()) return;
+        try {
+            vibrator.vibrate(VibrationEffect.createOneShot(
+                ms, VibrationEffect.DEFAULT_AMPLITUDE));
+        } catch (Throwable t) {
+            Log.w(TAG, "vibrate failed", t);
+        }
     }
 }

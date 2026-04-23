@@ -12,373 +12,455 @@
         android:layout_weight="1"
         android:fillViewport="true">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="8dp">
-
-        <!-- Header row: title left, status right. -->
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
-
-            <TextView
-                android:id="@+id/titleText"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Opalite"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/statusText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="12dp"
-                android:gravity="end"
-                android:text="idle"
-                android:textSize="11sp" />
-        </LinearLayout>
-
-        <!-- Row 1: Color | Depth -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Color"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:id="@+id/colorImage"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:minHeight="96dp"
-                    android:adjustViewBounds="true"
-                    android:background="#000000"
-                    android:scaleType="fitCenter" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="4dp"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Depth"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:id="@+id/depthImage"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:minHeight="96dp"
-                    android:adjustViewBounds="true"
-                    android:background="#000000"
-                    android:scaleType="fitCenter" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <!-- Row 2: Top-Down | Sonar -->
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:baselineAligned="false"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="vertical">
-
-                <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="Top-down (X-Z)"
-                    android:textSize="10sp"
-                    android:textStyle="bold" />
-
-                <ImageView
-                    android:id="@+id/topDownImage"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:minHeight="180dp"
-                    android:adjustViewBounds="true"
-                    android:background="#000000"
-                    android:scaleType="fitCenter" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:layout_marginStart="6dp"
-                android:orientation="vertical">
-
-                <!-- Sonar header: label + on/off switch -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:text="Sonar"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <Switch
-                        android:id="@+id/sonarOnSwitch"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:checked="true"
-                        android:text="" />
-                </LinearLayout>
-
-                <!-- Meters -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="14dp"
-                        android:layout_height="wrap_content"
-                        android:text="L"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <ProgressBar
-                        android:id="@+id/leftMeter"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="0dp"
-                        android:layout_height="14dp"
-                        android:layout_weight="1"
-                        android:max="1000"
-                        android:progress="0"
-                        android:progressTint="#FFD740"
-                        android:progressBackgroundTint="#444444" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="14dp"
-                        android:layout_height="wrap_content"
-                        android:text="C"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <ProgressBar
-                        android:id="@+id/centerMeter"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="0dp"
-                        android:layout_height="14dp"
-                        android:layout_weight="1"
-                        android:max="1000"
-                        android:progress="0"
-                        android:progressTint="#FFD740"
-                        android:progressBackgroundTint="#444444" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="14dp"
-                        android:layout_height="wrap_content"
-                        android:text="R"
-                        android:textSize="10sp"
-                        android:textStyle="bold" />
-
-                    <ProgressBar
-                        android:id="@+id/rightMeter"
-                        style="?android:attr/progressBarStyleHorizontal"
-                        android:layout_width="0dp"
-                        android:layout_height="14dp"
-                        android:layout_weight="1"
-                        android:max="1000"
-                        android:progress="0"
-                        android:progressTint="#FFD740"
-                        android:progressBackgroundTint="#444444" />
-                </LinearLayout>
-
-                <!-- Live readout moved in here (was a separate row). -->
-                <TextView
-                    android:id="@+id/freeSpaceText"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:fontFamily="monospace"
-                    android:text="L -- C -- R --\ndir --  fwd --"
-                    android:textSize="10sp" />
-
-                <!-- Volume slider -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="52dp"
-                        android:layout_height="wrap_content"
-                        android:text="volume"
-                        android:textSize="10sp" />
-
-                    <SeekBar
-                        android:id="@+id/volumeSeek"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:max="100"
-                        android:progress="25" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="52dp"
-                        android:layout_height="wrap_content"
-                        android:text="pitch"
-                        android:textSize="10sp" />
-
-                    <SeekBar
-                        android:id="@+id/pitchSeek"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:max="100"
-                        android:progress="10" />
-                </LinearLayout>
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="14dp"
-                    android:orientation="horizontal"
-                    android:gravity="center_vertical">
-
-                    <TextView
-                        android:layout_width="52dp"
-                        android:layout_height="wrap_content"
-                        android:text="falloff"
-                        android:textSize="10sp" />
-
-                    <SeekBar
-                        android:id="@+id/falloffSeek"
-                        android:layout_width="0dp"
-                        android:layout_height="wrap_content"
-                        android:layout_weight="1"
-                        android:max="100"
-                        android:progress="30" />
-                </LinearLayout>
-            </LinearLayout>
-        </LinearLayout>
-
-        <Switch
-            android:id="@+id/speakSwitch"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:checked="true"
-            android:text="Speak response" />
-
-        <!-- Dev / debug section: Brain host override + rolling log. Hidden
-             by default; tap the toggle to expand. -->
-        <Button
-            android:id="@+id/debugToggle"
-            style="?android:attr/buttonStyleSmall"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Show debug"
-            android:textSize="11sp" />
-
-        <LinearLayout
-            android:id="@+id/debugPanel"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone">
+            android:padding="8dp">
 
+            <!-- Header row: logo + title left, status right. -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="4dp"
                 android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:gravity="center_vertical"
+                android:paddingTop="2dp"
+                android:paddingBottom="4dp"
+                android:paddingStart="4dp"
+                android:paddingEnd="4dp">
+
+                <ImageView
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:layout_marginEnd="6dp"
+                    android:contentDescription="Opalite logo"
+                    android:src="@drawable/opalite_logo_small" />
 
                 <TextView
+                    android:id="@+id/titleText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Brain"
-                    android:textSize="11sp" />
+                    android:text="Opalite"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
 
-                <EditText
-                    android:id="@+id/hostEdit"
+                <TextView
+                    android:id="@+id/statusText"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:layout_marginStart="8dp"
-                    android:inputType="textUri"
-                    android:textSize="11sp"
-                    android:text="http://192.168.86.21:11434" />
+                    android:layout_marginStart="12dp"
+                    android:gravity="end"
+                    android:text="idle"
+                    android:textSize="11sp" />
             </LinearLayout>
 
-            <TextView
-                android:id="@+id/logText"
+            <!-- Row 1: Color | Depth -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="6dp"
-                android:fontFamily="monospace"
-                android:textSize="9sp"
-                android:text="" />
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Color"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <ImageView
+                        android:id="@+id/colorImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="96dp"
+                        android:adjustViewBounds="true"
+                        android:background="#000000"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="4dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Depth"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <ImageView
+                        android:id="@+id/depthImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="96dp"
+                        android:adjustViewBounds="true"
+                        android:background="#000000"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Row 2: Top-Down | Sonar -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Top-down (X-Z)"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+
+                    <ImageView
+                        android:id="@+id/topDownImage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minHeight="180dp"
+                        android:adjustViewBounds="true"
+                        android:background="#000000"
+                        android:scaleType="fitCenter" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="6dp"
+                    android:orientation="vertical">
+
+                    <!-- Sonar header: label + on/off switch. The Switch has
+                         a ~48dp min touch height which would otherwise
+                         dominate the row and push the "Sonar" label down
+                         out of alignment with "Top-down" in the sibling
+                         column. Anchor the label to the top and absorb
+                         the switch's extra height as trailing space. -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="start|top">
+
+                        <TextView
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:text="Sonar"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <Switch
+                            android:id="@+id/sonarOnSwitch"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:checked="true"
+                            android:text="" />
+                    </LinearLayout>
+
+                    <!-- Meters -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="14dp"
+                            android:layout_height="wrap_content"
+                            android:text="L"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <ProgressBar
+                            android:id="@+id/leftMeter"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="0dp"
+                            android:layout_height="14dp"
+                            android:layout_weight="1"
+                            android:max="1000"
+                            android:progress="0"
+                            android:progressTint="#FFD740"
+                            android:progressBackgroundTint="#444444" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="14dp"
+                            android:layout_height="wrap_content"
+                            android:text="C"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <ProgressBar
+                            android:id="@+id/centerMeter"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="0dp"
+                            android:layout_height="14dp"
+                            android:layout_weight="1"
+                            android:max="1000"
+                            android:progress="0"
+                            android:progressTint="#FFD740"
+                            android:progressBackgroundTint="#444444" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="4dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="14dp"
+                            android:layout_height="wrap_content"
+                            android:text="R"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
+
+                        <ProgressBar
+                            android:id="@+id/rightMeter"
+                            style="?android:attr/progressBarStyleHorizontal"
+                            android:layout_width="0dp"
+                            android:layout_height="14dp"
+                            android:layout_weight="1"
+                            android:max="1000"
+                            android:progress="0"
+                            android:progressTint="#FFD740"
+                            android:progressBackgroundTint="#444444" />
+                    </LinearLayout>
+
+                    <!-- Live readout. Two rows of weighted TextViews so
+                         each label stretches across the full line. -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/freeLText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:gravity="start"
+                            android:text="L --"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/freeCText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:gravity="center"
+                            android:text="C --"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/freeRText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:gravity="end"
+                            android:text="R --"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:orientation="horizontal">
+
+                        <TextView
+                            android:id="@+id/freeDirText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:gravity="start"
+                            android:text="dir --"
+                            android:textSize="10sp" />
+
+                        <TextView
+                            android:id="@+id/freeFwdText"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:fontFamily="monospace"
+                            android:gravity="end"
+                            android:text="fwd --"
+                            android:textSize="10sp" />
+                    </LinearLayout>
+
+                    <!-- Volume slider -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="52dp"
+                            android:layout_height="wrap_content"
+                            android:text="volume"
+                            android:textSize="10sp" />
+
+                        <SeekBar
+                            android:id="@+id/volumeSeek"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="100"
+                            android:progress="25" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="52dp"
+                            android:layout_height="wrap_content"
+                            android:text="pitch"
+                            android:textSize="10sp" />
+
+                        <SeekBar
+                            android:id="@+id/pitchSeek"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="100"
+                            android:progress="10" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:layout_width="52dp"
+                            android:layout_height="wrap_content"
+                            android:text="falloff"
+                            android:textSize="10sp" />
+
+                        <SeekBar
+                            android:id="@+id/falloffSeek"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:max="100"
+                            android:progress="30" />
+                    </LinearLayout>
+
+                    <Switch
+                        android:id="@+id/speakSwitch"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:checked="true"
+                        android:text="Speak response"
+                        android:textSize="10sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Dev / debug section: Brain host override + rolling log. Hidden
+             by default; tap the toggle to expand. Stealth styling — no
+             button background, tiny dim text. -->
+            <Button
+                android:id="@+id/debugToggle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:background="@android:color/transparent"
+                android:minHeight="0dp"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:text="DEBUG"
+                android:textColor="#888888"
+                android:textSize="11sp" />
+
+            <LinearLayout
+                android:id="@+id/debugPanel"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Brain"
+                        android:textColor="#BBBBBB"
+                        android:textSize="11sp" />
+
+                    <EditText
+                        android:id="@+id/hostEdit"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginStart="8dp"
+                        android:inputType="textUri"
+                        android:textColor="#BBBBBB"
+                        android:textColorHint="#666666"
+                        android:textSize="11sp"
+                        android:text="http://192.168.86.21:11434" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/logText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:fontFamily="monospace"
+                    android:textColor="#BBBBBB"
+                    android:textSize="9sp"
+                    android:text="" />
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
     </ScrollView>
 
     <!-- Pinned bottom Describe button. Full-width, accessible finger target.

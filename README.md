@@ -17,6 +17,13 @@ geometry baseline, both running locally:
   VLM via Ollama. Geometry stays authoritative for distance and
   direction; Gemma only names the object.
 
+Phase 3 ports the whole pipeline to an Android handheld. The D435i
+plugs into the phone over USB-OTG; geometry, sonar, and the Brain HTTP
+client are the same C++ modules compiled into an NDK `.so`. Output is
+the phone's speakers/headphones (sonar + TTS) plus a 4-pane preview
+mirroring the Windows layout. Brain inference still round-trips to
+Ollama on the LAN. See [android/opalite-edge/README.md](android/opalite-edge/README.md).
+
 ## Prerequisites (Windows)
 
 - **Intel RealSense SDK 2.0** installed to `C:\Program Files\RealSense SDK 2.0`
@@ -158,3 +165,56 @@ docs/        project proposal and demo script
 - **Sonar cadence is global** — all three sectors share the same
   carrier frequency and falloff shape. Per-sector timbre (e.g.
   different pitch per side) could improve discrimination.
+
+## Phase 3 — Android edge device
+
+The phone is the compute node. D435i plugs into the phone via USB-OTG;
+the Java `MainActivity` owns the librealsense pipeline and hands every
+depth/color frame into `libopaliteedge.so`, which is the same
+`free_space.cpp` / `sonar.cpp` / `brain_client.cpp` the Windows build
+uses, bridged through a thin `jni_bridge.cpp`. `miniaudio` picks
+AAudio or OpenSL on the NDK side and drives the phone's speaker /
+headphones directly.
+
+Shipped tonight:
+
+- **Four-pane preview** — Color + Depth (top), Top-Down + Sonar
+  column (bottom). Color has L / C / R ROI overlays and a live
+  `fwd X.XX m` readout; Top-Down has clearance-colored cone wedges
+  per sector. Depth uses a turbo-ish colormap; color is
+  depth→color-aligned with a `HoleFillingFilter` so the two panes
+  share a frustum.
+- **Live L / C / R sonar amplitude meters** polled back from the
+  NDK sonar at 20 Hz.
+- **Single 400 dp "Describe" button** pinned to the bottom with
+  rounded bottom corners matching the phone's display radius.
+  Short haptic on press-down, longer haptic on release so a blind
+  user gets tactile confirmation without looking.
+- **Long-press Describe → voice capture** via Android
+  `SpeechRecognizer`. The transcript is first matched against
+  local voice commands (`turn off sonar`, `voice off`, etc.); if
+  none match, it's forwarded to Gemma as the prompt and the reply
+  is spoken back via TTS.
+- **Threshold-cross TTS** — one-shot "Blocked at X meters" when
+  the center sector goes clear → blocked, with a 3 s cooldown.
+- **Immersive fullscreen + dark theme + Opalite logo**. USB-attach
+  intent auto-resumes the pipeline; `CAMERA` + `RECORD_AUDIO`
+  permissions are requested in a single combined dialog.
+- **Collapsible debug panel** with a persisted Brain host field
+  (`SharedPreferences`) and a rolling log. Every Brain round-trip
+  is appended to an on-device `brain_latency.csv` with the same
+  schema as the desktop log.
+
+See [android/opalite-edge/README.md](android/opalite-edge/README.md)
+for build, runtime, and troubleshooting details.
+
+### Known limitations (Phase 3)
+
+- **Brain still requires LAN reachability** to a host running
+  `ollama serve` with `gemma4:e2b`. On-device Gemma 4 via
+  AICore / ML Kit Prompt API is planned for a follow-up —
+  expected to eliminate the LAN dependency and shave the
+  round-trip further.
+- **USB-OTG quality is the single biggest variable**. USB-2
+  dongles drop depth to <15 fps or fail outright; budget a
+  known-good cable before any demo.
