@@ -7,6 +7,15 @@ Phase 1 target: a native C++ GUI on Windows that captures aligned color
 and depth, renders a top-down occupancy map, and uses depth geometry to
 score left / center / right free space and suggest a direction.
 
+Phase 2 adds two optional feedback layers on top of the Phase 1
+geometry baseline, both running locally:
+
+- **Sonar** — continuous stereo audio that pulses and pans by sector
+  clearance. No network. Closer obstacles → louder and faster hum.
+- **Brain** — on-demand visual-language caption from a local Gemma 4
+  VLM via Ollama. Geometry stays authoritative for distance and
+  direction; Gemma only names the object.
+
 ## Prerequisites (Windows)
 
 - **Intel RealSense SDK 2.0** installed to `C:\Program Files\RealSense SDK 2.0`
@@ -20,6 +29,16 @@ score left / center / right free space and suggest a direction.
 
 If the RealSense SDK is installed somewhere other than the default path, pass
 `-DREALSENSE_SDK_DIR=<path>` at configure time.
+
+**For the optional Brain pane (Phase 2B):**
+
+- **Ollama** running locally, reachable at `http://localhost:11434`
+  (install from [ollama.com](https://ollama.com)).
+- **Gemma 4 E2B** pulled: `ollama pull gemma4:e2b` (~7 GB, multimodal).
+  Other tags work by editing `BrainConfig::model`.
+
+The Brain pane is an overlay: the rest of the app runs identically
+whether or not Ollama is reachable.
 
 ## Build
 
@@ -37,16 +56,21 @@ alongside so there's no PATH setup required at runtime.
 ./bin/opalite.exe
 ```
 
-Current status: live three-pane preview (full-width top-down, color +
-aligned depth, Controls strip), per-frame free-space analyzer with
-clearance scores and suggested direction, timestamped frame save,
-rolling pipeline-latency meter + CSV log.
+Current status: live four-pane layout (Color and Depth on top,
+Top-Down and Brain below, Controls strip at the bottom), per-frame
+free-space analyzer with clearance scores and suggested direction,
+timestamped frame save, rolling pipeline-latency meter + CSV log,
+stereo sonar audio feedback layer, and an on-demand Gemma 4 VLM
+caption pane with both structured and free-form query modes.
 
 ## Controls
 
 ### Keyboard
 
 - **Q / ESC / Quit button** — exit cleanly.
+- **M** — toggle Sonar mute (fades smoothly, no click).
+- **SPACE** — fire a Brain query (Ask). Edge-detected + state-gated
+  so a held key only issues one request per press.
 
 ### Controls pane (live)
 
@@ -60,6 +84,36 @@ rolling pipeline-latency meter + CSV log.
   - `extent (m)` — half-width (X) and full-depth (Z) of the world grid. Default 5.
   - `cell (m)` — world metres per output pixel. Default 0.02.
   - `min Z (m)` — near-plane cutoff; depth closer than this is ignored. Default 0.20.
+- **Sonar** — stereo-audio feedback layer (can be left on in the background):
+  - `on` checkbox and `M` hotkey both toggle mute. Fade is smooth.
+  - `vol` — master volume. Default 0.25.
+  - `pitch` — carrier frequency in Hz. Default 110 (low hum).
+  - `falloff` — amplitude exponent. Higher = quieter mid-range, steeper
+    onset close-up. Default 4 (quartic).
+  - Per-sector L / C / R amplitude meters.
+
+### Brain pane (Phase 2B)
+
+Semantic overlay driven by a local Gemma 4 VLM through Ollama. The
+caption appears in the bottom-right pane; geometry and sonar keep
+running live during the 1–3 s forward pass.
+
+- **Mode radio**
+  - **Structured** (default) — Gemma emits `{"main_object":"<noun>"}`
+    via JSON-schema-constrained decoding. The app composes a
+    deterministic sentence from the object name + the geometry layer's
+    closest sector + sticky-center direction. Example: `Person on the
+    left at 0.65 m, go right.`
+  - **Freeform** — Gemma writes the whole sentence. Useful for prompt
+    iteration and comparison.
+- **Editable prompt** — multiline text box, separate buffer per mode.
+- **Ask button** / **SPACE** — fire a request. Status line shows
+  `requesting... N.N s` while pending, `done (N.NN s, median M.MM s
+  over K)` when it returns, or `failed (N ms)` on error.
+- **Raw JSON** is shown muted below the composed sentence so the split
+  between VLM recognition and sensor-driven wording is explicit.
+- **Brain latency CSV** — every request is appended to
+  `data/brain_latency.csv` with `wall_ms, roundtrip_ms, ok, mode`.
 
 The Controls pane also shows live render/camera FPS, median & p95 pipeline latency, stream resolutions, min/max depth in frame, per-sector near-depth + clearance score, current forward distance, and the suggested direction.
 
@@ -90,4 +144,17 @@ docs/        project proposal and demo script
 - **Single-frame analyzer** — no temporal smoothing. Moving the camera quickly produces a brief wobble in the Suggested direction.
 - **D435i depth floor** ~0.28 m — objects closer than that show up as invalid (zero) pixels, not near-range obstacles.
 - **Reflective / transparent surfaces** produce depth holes; with min-support gating these reduce to "insufficient data" rather than false alarms, but the sector is effectively blind in that direction.
-- **No semantic classification** — geometry-only. "Chair vs sofa vs wall" is out of scope for Phase 1 by design; semantics land in Phase 2 on DGX Spark.
+- **No semantic classification in the real-time loop** — Phase 1 is
+  geometry-only at 30 Hz. The Phase 2B Brain pane adds a semantic
+  layer but only on-demand (~2.5 s round-trip), not per frame.
+
+## Known limitations (Phase 2)
+
+- **Brain round-trip is ~2–3 s** for `gemma4:e2b` on the dev PC — fine
+  for demos, too slow for continuous guidance. Per-frame captions
+  would require a much smaller model or on-device inference (Phase 3).
+- **No TTS yet** — captions are text-only. Windows SAPI / Android
+  `TextToSpeech` slot in during Phase 3.
+- **Sonar cadence is global** — all three sectors share the same
+  carrier frequency and falloff shape. Per-sector timbre (e.g.
+  different pitch per side) could improve discrimination.

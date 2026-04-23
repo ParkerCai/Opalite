@@ -18,6 +18,8 @@
 
 #include <opencv2/core.hpp>
 
+#include <array>
+#include <fstream>
 #include <future>
 #include <string>
 
@@ -77,4 +79,16 @@ private:
   static constexpr int kPromptBufSize = 512;
   char structuredBuf_[kPromptBufSize]{};
   char freeformBuf_[kPromptBufSize]{};
+
+  // Ring buffer of per-request round-trip latencies + data/brain_latency.csv
+  // append stream. Mirrors the Phase 1 pipeline-latency HUD pattern.
+  static constexpr int kLatencyCap = 30;
+  std::array<double, kLatencyCap> latencyBuf_{};
+  int latencyHead_ = 0;
+  int latencyCount_ = 0;
+  std::ofstream latencyCsv_;
+
+  void pushLatency(double nowMs, double roundtripMs, bool ok,
+    const char* mode);
+  double medianLatencyMs() const;
 };

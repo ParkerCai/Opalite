@@ -29,4 +29,5 @@ __pycache__/
 /data/saved_frames/*.png
 /data/saved_frames/*.ply
 /data/latency.csv
+/data/brain_latency.csv
 imgui.ini

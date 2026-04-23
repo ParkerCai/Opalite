@@ -26,6 +26,7 @@
 #include <chrono>
 #include <cstdio>
 #include <cstring>
+#include <iomanip>
 
 namespace {
 
@@ -49,6 +50,39 @@ void copyToBuf(char* dst, size_t cap, const char* src) {
 BrainPane::BrainPane() {
   copyToBuf(structuredBuf_, kPromptBufSize, kDefaultStructuredPrompt);
   copyToBuf(freeformBuf_, kPromptBufSize, kDefaultFreeformPrompt);
+
+  // Brain round-trip log - separate from the Phase 1 latency.csv so
+  // the per-frame pipeline timings and the per-query VLM timings don't
+  // mix in one file.
+  latencyCsv_.open("data/brain_latency.csv",
+    std::ios::out | std::ios::trunc);
+  if (latencyCsv_) {
+    latencyCsv_ << "wall_ms,roundtrip_ms,ok,mode\n";
+  } else {
+    std::fprintf(stderr, "BrainPane: could not open data/brain_latency.csv\n");
+  }
+}
+
+void BrainPane::pushLatency(double nowMs, double roundtripMs, bool ok,
+  const char* mode) {
+  latencyBuf_[latencyHead_] = roundtripMs;
+  latencyHead_ = (latencyHead_ + 1) % kLatencyCap;
+  if (latencyCount_ < kLatencyCap) ++latencyCount_;
+  if (latencyCsv_) {
+    latencyCsv_ << std::fixed << std::setprecision(3)
+      << nowMs << "," << roundtripMs << ","
+      << (ok ? 1 : 0) << "," << mode << "\n";
+    latencyCsv_.flush();  // brain calls are rare; flush so a crash
+                          // doesn't lose the last few samples.
+  }
+}
+
+double BrainPane::medianLatencyMs() const {
+  if (latencyCount_ == 0) return 0.0;
+  std::array<double, kLatencyCap> sorted{};
+  std::copy_n(latencyBuf_.begin(), latencyCount_, sorted.begin());
+  std::sort(sorted.begin(), sorted.begin() + latencyCount_);
+  return sorted[latencyCount_ / 2];
 }
 
 bool BrainPane::isPending() const {
@@ -98,6 +132,8 @@ void BrainPane::render(double nowMs,
         ? composeSentence(fsSnapshot_, structuredResp_.mainObject)
         : std::string{};
       state_ = structuredResp_.ok ? State::Done : State::Error;
+      pushLatency(nowMs, structuredResp_.roundtripMs,
+        structuredResp_.ok, "structured");
       std::fprintf(stderr, "Brain[struct] ms=%.0f ok=%d obj='%s' raw='%s' err='%s'\n",
         structuredResp_.roundtripMs, structuredResp_.ok,
         structuredResp_.mainObject.c_str(),
@@ -110,6 +146,8 @@ void BrainPane::render(double nowMs,
          == std::future_status::ready) {
       freeformResp_ = freeformFuture_.get();
       state_ = freeformResp_.ok ? State::Done : State::Error;
+      pushLatency(nowMs, freeformResp_.roundtripMs,
+        freeformResp_.ok, "freeform");
       std::fprintf(stderr, "Brain[free] ms=%.0f ok=%d len=%zu err='%s'\n",
         freeformResp_.roundtripMs, freeformResp_.ok,
         freeformResp_.text.size(), freeformResp_.error.c_str());
@@ -159,7 +197,13 @@ void BrainPane::render(double nowMs,
   } else if (state_ == State::Done) {
     const double ms = (mode_ == Mode::Structured)
       ? structuredResp_.roundtripMs : freeformResp_.roundtripMs;
-    ImGui::TextDisabled("done (%.2f s)", ms / 1000.0);
+    const double med = medianLatencyMs();
+    if (latencyCount_ > 1 && med > 0.0) {
+      ImGui::TextDisabled("done (%.2f s, median %.2f s over %d)",
+        ms / 1000.0, med / 1000.0, latencyCount_);
+    } else {
+      ImGui::TextDisabled("done (%.2f s)", ms / 1000.0);
+    }
   } else {
     const double ms = (mode_ == Mode::Structured)
       ? structuredResp_.roundtripMs : freeformResp_.roundtripMs;
