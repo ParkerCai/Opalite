@@ -109,6 +109,11 @@ set(IMGUI_SOURCES
 )
 
 add_executable(opalite ${OPALITE_SOURCES} ${IMGUI_SOURCES})
+# OPALITE_USE_OPENCV gates the cv::Mat convenience overloads in
+# free_space.{h,cpp} and brain_client.{h,cpp}. The Android NDK build
+# compiles the same sources without this define so OpenCV stays off
+# the phone dependency list.
+target_compile_definitions(opalite PRIVATE OPALITE_USE_OPENCV)
 target_link_libraries(opalite
     PRIVATE
     ${OpenCV_LIBS}

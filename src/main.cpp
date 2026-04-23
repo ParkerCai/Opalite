@@ -281,7 +281,9 @@ int main() {
         };
 
         for (const SectorClearance* sec : sectors) {
-          cv::rectangle(colorBgr, sec->roi, clearanceColor(*sec), thickness);
+          const cv::Rect cvRoi(sec->roi.x, sec->roi.y,
+            sec->roi.width, sec->roi.height);
+          cv::rectangle(colorBgr, cvRoi, clearanceColor(*sec), thickness);
         }
 
         // Label only the center sector with the distance (readable).

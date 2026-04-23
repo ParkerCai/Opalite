@@ -30,4 +30,24 @@ __pycache__/
 /data/saved_frames/*.ply
 /data/latency.csv
 /data/brain_latency.csv
+/data/brain_latency_android.csv
 imgui.ini
+
+# Phase 3 Android opalite-edge: exclude Gradle / Studio / NDK caches
+# and build output, keep sources + Gradle scripts + vendored AAR + res.
+/android/opalite-edge/.gradle/
+/android/opalite-edge/.gradle-user-home/
+/android/opalite-edge/.gradle-docker/
+/android/opalite-edge/.idea/
+/android/opalite-edge/.kotlin/
+# Studio / Opalite wrapper cache dirs (emerge from the vendored gradle setup)
+/android/opalite-edge/.oc-build/
+/android/opalite-edge/.oc-build-user/
+/android/opalite-edge/.oc-gradle/
+/android/opalite-edge/.oc-gradle-jdk17/
+/android/opalite-edge/build/
+/android/opalite-edge/app/build/
+/android/opalite-edge/app/.cxx/
+/android/opalite-edge/local.properties
+*.iml
+/android/opalite-edge/app-debug.apk

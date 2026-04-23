@@ -10,6 +10,10 @@
   suggested walking direction. Uses a low-percentile depth (robust to
   specle / holes) plus a minimum-support gate so isolated noisy pixels
   don't flip the guidance.
+
+  The core operates on a raw uint16_t depth buffer so it can be compiled
+  into the Android NDK build unchanged. The cv::Mat overload at the
+  bottom is compiled only when OPALITE_USE_OPENCV is defined.
 */
 
 
@@ -19,22 +23,24 @@
 #include <cstdint>
 #include <vector>
 
+#ifdef OPALITE_USE_OPENCV
+#include <opencv2/core.hpp>
+#endif
+
 namespace {
 
-  SectorClearance scoreSector(const cv::Mat& depthMm16u,
-    const cv::Rect& roi,
-    const FreeSpaceConfig& cfg) {
+  SectorClearance scoreSector(const uint16_t* depth, int stride,
+    const SectorRect& roi, const FreeSpaceConfig& cfg) {
     SectorClearance out{};
     out.roi = roi;
-    if (roi.area() <= 0) return out;
+    if (roi.width <= 0 || roi.height <= 0) return out;
 
     // Collect valid (non-zero) depths so we can sort / percentile them.
-    const cv::Mat region = depthMm16u(roi);
     std::vector<uint16_t> vals;
-    vals.reserve(static_cast<size_t>(roi.area()));
-    for (int y = 0; y < region.rows; ++y) {
-      const uint16_t* row = region.ptr<uint16_t>(y);
-      for (int x = 0; x < region.cols; ++x) {
+    vals.reserve(static_cast<size_t>(roi.width) * static_cast<size_t>(roi.height));
+    for (int y = 0; y < roi.height; ++y) {
+      const uint16_t* row = depth + static_cast<ptrdiff_t>(roi.y + y) * stride + roi.x;
+      for (int x = 0; x < roi.width; ++x) {
         const uint16_t v = row[x];
         if (v > 0) vals.push_back(v);
       }
@@ -62,13 +68,10 @@ namespace {
 
 }  // namespace
 
-FreeSpaceResult analyzeForwardPath(const cv::Mat& depthMm16u,
-  const FreeSpaceConfig& cfg) {
+FreeSpaceResult analyzeForwardPath(const uint16_t* depthMm16u,
+  int W, int H, const FreeSpaceConfig& cfg) {
   FreeSpaceResult out{};
-  if (depthMm16u.empty() || depthMm16u.type() != CV_16UC1) return out;
-
-  const int W = depthMm16u.cols;
-  const int H = depthMm16u.rows;
+  if (depthMm16u == nullptr || W <= 0 || H <= 0) return out;
 
   // Clamp the configuration so the center beam always fits inside the
   // overall span, leaving at least a 1-pixel slice for each side.
@@ -89,12 +92,12 @@ FreeSpaceResult analyzeForwardPath(const cv::Mat& depthMm16u,
   const int rightX = centerX + beamW;
   const int rightW = (coneX0 + coneW) - rightX;
 
-  out.left = scoreSector(depthMm16u,
-    cv::Rect(leftX, coneY0, leftW, coneH), cfg);
-  out.center = scoreSector(depthMm16u,
-    cv::Rect(centerX, coneY0, beamW, coneH), cfg);
-  out.right = scoreSector(depthMm16u,
-    cv::Rect(rightX, coneY0, rightW, coneH), cfg);
+  out.left = scoreSector(depthMm16u, W,
+    { leftX, coneY0, leftW, coneH }, cfg);
+  out.center = scoreSector(depthMm16u, W,
+    { centerX, coneY0, beamW, coneH }, cfg);
+  out.right = scoreSector(depthMm16u, W,
+    { rightX, coneY0, rightW, coneH }, cfg);
 
   // Sticky-center direction policy. If center has a trusted, unblocked
   // reading, stay on CENTER unless a side's near-depth is meaningfully
@@ -137,3 +140,21 @@ FreeSpaceResult analyzeForwardPath(const cv::Mat& depthMm16u,
   out.nearestForwardM = out.center.nearDepthM;
   return out;
 }
+
+#ifdef OPALITE_USE_OPENCV
+FreeSpaceResult analyzeForwardPath(const cv::Mat& depthMm16u,
+  const FreeSpaceConfig& cfg) {
+  FreeSpaceResult out{};
+  if (depthMm16u.empty() || depthMm16u.type() != CV_16UC1) return out;
+  if (!depthMm16u.isContinuous()) {
+    // Core expects a contiguous W*H buffer; clone if the caller handed
+    // us an ROI slice with a non-W row step.
+    cv::Mat contig = depthMm16u.clone();
+    return analyzeForwardPath(contig.ptr<uint16_t>(0),
+      contig.cols, contig.rows, cfg);
+  }
+  return analyzeForwardPath(
+    depthMm16u.ptr<uint16_t>(0),
+    depthMm16u.cols, depthMm16u.rows, cfg);
+}
+#endif

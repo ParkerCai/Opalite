@@ -6,8 +6,9 @@
 
   brain_client.cpp
   Thin wrapper over cpp-httplib + nlohmann/json for the Ollama
-  /api/generate endpoint. Phase 2B-2 implements only the text-only path
-  ("say hi" smoke); 2B-3 fills in the image overload with JPEG + base64.
+  /api/generate endpoint. The byte-vector core is portable and compiles
+  on NDK without OpenCV; the cv::Mat overloads (compiled only under
+  OPALITE_USE_OPENCV) JPEG-encode via cv::imencode and forward.
 */
 
 
@@ -15,7 +16,11 @@
 
 #include <httplib.h>
 #include <nlohmann/json.hpp>
+
+#ifdef OPALITE_USE_OPENCV
+#include <opencv2/core.hpp>
 #include <opencv2/imgcodecs.hpp>
+#endif
 
 #include <algorithm>
 #include <cctype>
@@ -58,16 +63,6 @@ namespace {
     }
     while (out.size() % 4) out.push_back('=');
     return out;
-  }
-
-  // JPEG-encode a BGR8 Mat at a given quality and return the base64
-  // string (empty on encode failure). Quality 70 is a sane default: ~5x
-  // smaller than PNG, visually unchanged for the VLM.
-  std::string jpegBase64(const cv::Mat& bgr, int quality) {
-    std::vector<uint8_t> buf;
-    const std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, quality };
-    if (!cv::imencode(".jpg", bgr, buf, params)) return {};
-    return base64Encode(buf);
   }
 
   BrainResponse postAndParse(const BrainConfig& cfg,
@@ -123,21 +118,37 @@ BrainResponse askOllama(const std::string& prompt, const BrainConfig& cfg) {
   return postAndParse(cfg, body);
 }
 
+BrainResponse askOllama(const std::string& prompt,
+  const std::vector<uint8_t>& jpegBytes,
+  const BrainConfig& cfg) {
+  if (jpegBytes.empty()) return askOllama(prompt, cfg);
+  const std::string b64 = base64Encode(jpegBytes);
+  const nlohmann::json body = {
+    {"model", cfg.model},
+    {"prompt", prompt},
+    {"images", nlohmann::json::array({ b64 })},
+    {"stream", false},
+    {"think", false},
+    {"keep_alive", cfg.keepAlive},
+    {"options", {
+      {"temperature", cfg.temperature},
+      {"num_predict", cfg.numPredict},
+    }},
+  };
+  return postAndParse(cfg, body);
+}
+
 BrainStructuredResponse askOllamaStructured(const std::string& instruction,
-  const cv::Mat& colorBgr,
+  const std::vector<uint8_t>& jpegBytes,
   const BrainConfig& cfg) {
   BrainStructuredResponse out;
   Timer t;
 
-  if (colorBgr.empty()) {
-    out.error = "colorBgr is empty";
+  if (jpegBytes.empty()) {
+    out.error = "jpegBytes is empty";
     return out;
   }
-  const std::string b64 = jpegBase64(colorBgr, 70);
-  if (b64.empty()) {
-    out.error = "cv::imencode JPEG failed";
-    return out;
-  }
+  const std::string b64 = base64Encode(jpegBytes);
 
   // JSON Schema constrains Ollama's token generation so `response` is
   // guaranteed to parse into this exact shape. Location is NOT asked
@@ -294,30 +305,43 @@ std::string buildGeometryPrompt(const FreeSpaceResult& fs,
   return p;
 }
 
+#ifdef OPALITE_USE_OPENCV
+namespace {
+  // JPEG-encode a BGR8 cv::Mat at the given quality. Empty on failure.
+  std::vector<uint8_t> jpegEncode(const cv::Mat& bgr, int quality) {
+    std::vector<uint8_t> buf;
+    const std::vector<int> params = { cv::IMWRITE_JPEG_QUALITY, quality };
+    if (!cv::imencode(".jpg", bgr, buf, params)) return {};
+    return buf;
+  }
+}  // namespace
+
 BrainResponse askOllama(const std::string& prompt,
   const cv::Mat& colorBgr,
   const BrainConfig& cfg) {
   if (colorBgr.empty()) return askOllama(prompt, cfg);
-  const std::string b64 = jpegBase64(colorBgr, 70);
-  if (b64.empty()) {
+  const std::vector<uint8_t> jpeg = jpegEncode(colorBgr, 70);
+  if (jpeg.empty()) {
     BrainResponse r;
     r.error = "cv::imencode JPEG failed";
     return r;
   }
-  const nlohmann::json body = {
-    {"model", cfg.model},
-    {"prompt", prompt},
-    {"images", nlohmann::json::array({ b64 })},
-    {"stream", false},
-    // Disable Gemma 4's internal "thinking" pass. With thinking on, the
-    // model burns tokens reasoning privately and returns an empty
-    // response field; turning it off makes the caption the actual output.
-    {"think", false},
-    {"keep_alive", cfg.keepAlive},
-    {"options", {
-      {"temperature", cfg.temperature},
-      {"num_predict", cfg.numPredict},
-    }},
-  };
-  return postAndParse(cfg, body);
+  return askOllama(prompt, jpeg, cfg);
 }
+
+BrainStructuredResponse askOllamaStructured(const std::string& instruction,
+  const cv::Mat& colorBgr,
+  const BrainConfig& cfg) {
+  BrainStructuredResponse out;
+  if (colorBgr.empty()) {
+    out.error = "colorBgr is empty";
+    return out;
+  }
+  const std::vector<uint8_t> jpeg = jpegEncode(colorBgr, 70);
+  if (jpeg.empty()) {
+    out.error = "cv::imencode JPEG failed";
+    return out;
+  }
+  return askOllamaStructured(instruction, jpeg, cfg);
+}
+#endif

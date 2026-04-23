@@ -5,19 +5,23 @@
   CS5330 - Pattern Recognition & Computer Vision
 
   brain_client.h
-  Phase 2B semantic client. Posts a prompt (and, later, a JPEG-encoded
-  color frame) to a local Ollama endpoint running a Gemma 4 VLM, then
-  returns the response text and round-trip latency. Sync API for now;
-  step 2B-5 wraps it in std::async for the UI thread.
+  Phase 2B semantic client. Posts a prompt (and, optionally, an already-
+  JPEG-encoded color frame) to a local Ollama endpoint running a Gemma 4
+  VLM and returns the response text plus round-trip latency.
+
+  The core takes raw JPEG bytes so it compiles on Android NDK without
+  OpenCV. Windows callers have cv::Mat-friendly convenience overloads
+  compiled in when OPALITE_USE_OPENCV is defined; those just call
+  cv::imencode and forward to the byte-vector core.
 */
 
 #pragma once
 
 #include "free_space.h"
 
-#include <opencv2/core.hpp>
-
+#include <cstdint>
 #include <string>
+#include <vector>
 
 struct BrainConfig {
   // Base URL of the Ollama endpoint. Phase 3 Android just changes this.
@@ -56,23 +60,34 @@ struct BrainStructuredResponse {
   double roundtripMs = 0.0;
 };
 
-// Sync POST to <host>/api/generate. Returns when Ollama has fully
-// produced the non-streaming response or when the timeout fires. Phase
-// 2B-2 uses the text-only overload; step 2B-3 adds the image path.
+// Text-only prompt. Always available.
 BrainResponse askOllama(const std::string& prompt,
   const BrainConfig& cfg);
 
-// Overload with a color frame (BGR8). Phase 2B-3 implementation.
+// Byte-vector core. Caller hands in already-JPEG-encoded image bytes
+// (e.g. from Android's Bitmap.compress(JPEG) on the phone). Portable;
+// no OpenCV dependency.
+BrainResponse askOllama(const std::string& prompt,
+  const std::vector<uint8_t>& jpegBytes,
+  const BrainConfig& cfg);
+
+// Structured byte-vector core. Same as the cv::Mat overload but works
+// from raw JPEG bytes.
+BrainStructuredResponse askOllamaStructured(const std::string& instruction,
+  const std::vector<uint8_t>& jpegBytes,
+  const BrainConfig& cfg);
+
+#ifdef OPALITE_USE_OPENCV
+namespace cv { class Mat; }
+// Windows convenience: accept a BGR cv::Mat, cv::imencode to JPEG, then
+// forward to the byte-vector core above.
 BrainResponse askOllama(const std::string& prompt,
   const cv::Mat& colorBgr,
   const BrainConfig& cfg);
-
-// Structured variant: asks Gemma for a single object name via a JSON
-// schema (`format` field). Returns a parsed BrainStructuredResponse,
-// keeping the raw JSON string for the debug readout.
 BrainStructuredResponse askOllamaStructured(const std::string& instruction,
   const cv::Mat& colorBgr,
   const BrainConfig& cfg);
+#endif
 
 // Assemble a geometry-augmented prompt from the latest free-space state
 // plus a user-facing question. Gemma receives sector distances and the

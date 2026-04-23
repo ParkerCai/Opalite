@@ -10,11 +10,15 @@
   a 0-1 clearance score; a suggested direction picks the most open sector
   with ties broken toward center. Percentile + minimum-support guard the
   reading against single-pixel speckle and depth-map holes.
+
+  The analyzer core runs on a raw uint16_t depth buffer so it compiles
+  on Android NDK without OpenCV. A cv::Mat convenience overload is
+  compiled only when OPALITE_USE_OPENCV is defined (Windows build).
 */
 
 #pragma once
 
-#include <opencv2/core.hpp>
+#include <cstdint>
 
 struct FreeSpaceConfig {
   // Blocked below this distance regardless of clearance score.
@@ -47,12 +51,21 @@ struct FreeSpaceConfig {
   bool enabled = true;
 };
 
+// Portable replacement for cv::Rect so free_space.h stays OpenCV-free.
+// Field names mirror cv::Rect so existing Windows call sites keep working.
+struct SectorRect {
+  int x = 0;
+  int y = 0;
+  int width = 0;
+  int height = 0;
+};
+
 struct SectorClearance {
   float nearDepthM = 0.0f;  // 0 means insufficient valid samples in the ROI
   float score = 0.0f;       // 0 = blocked at 0 m, 1 = clear at horizon
   bool blocked = false;     // nearDepthM > 0 and < blockedThresholdM
   int validPixels = 0;      // count of non-zero depth samples in the ROI
-  cv::Rect roi;             // pixel rectangle inside the depth image
+  SectorRect roi;           // pixel rectangle inside the depth image
 };
 
 enum class Direction { Left = 0, Center = 1, Right = 2 };
@@ -67,5 +80,16 @@ struct FreeSpaceResult {
   float nearestForwardM = 0.0f;
 };
 
+// Portable core. Consumes a raw 16-bit depth buffer in mm. Used
+// directly from the Android JNI bridge; also the implementation target of
+// the cv::Mat overload on Windows.
+FreeSpaceResult analyzeForwardPath(const uint16_t* depthMm16u,
+  int width, int height, const FreeSpaceConfig& cfg);
+
+#ifdef OPALITE_USE_OPENCV
+namespace cv { class Mat; }
+// Thin convenience wrapper for Windows callers that already have a
+// cv::Mat depth frame from the RealSense pipeline.
 FreeSpaceResult analyzeForwardPath(const cv::Mat& depthMm16u,
   const FreeSpaceConfig& cfg);
+#endif
