@@ -94,6 +94,7 @@ set(OPALITE_SOURCES
     free_space.cpp
     sonar.cpp
     brain_client.cpp
+    brain_pane.cpp
 )
 
 # Dear ImGui sources. Compiled directly into the executable - ImGui ships no

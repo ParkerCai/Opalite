@@ -13,6 +13,8 @@
 
 #pragma once
 
+#include "free_space.h"
+
 #include <opencv2/core.hpp>
 
 #include <string>
@@ -42,6 +44,18 @@ struct BrainResponse {
   double roundtripMs = 0.0;      // wall-clock from POST to parsed response
 };
 
+// Schema-constrained variant of BrainResponse. Gemma is asked to emit
+// exactly { "main_object": "<word-or-phrase>" } via Ollama's `format`
+// field; the parsed object name is lifted into `mainObject` and the
+// raw JSON string is preserved in `raw` for demo / debugging.
+struct BrainStructuredResponse {
+  bool ok = false;
+  std::string mainObject;
+  std::string raw;               // raw JSON body from Ollama (for the UI)
+  std::string error;
+  double roundtripMs = 0.0;
+};
+
 // Sync POST to <host>/api/generate. Returns when Ollama has fully
 // produced the non-streaming response or when the timeout fires. Phase
 // 2B-2 uses the text-only overload; step 2B-3 adds the image path.
@@ -52,3 +66,23 @@ BrainResponse askOllama(const std::string& prompt,
 BrainResponse askOllama(const std::string& prompt,
   const cv::Mat& colorBgr,
   const BrainConfig& cfg);
+
+// Structured variant: asks Gemma for a single object name via a JSON
+// schema (`format` field). Returns a parsed BrainStructuredResponse,
+// keeping the raw JSON string for the debug readout.
+BrainStructuredResponse askOllamaStructured(const std::string& instruction,
+  const cv::Mat& colorBgr,
+  const BrainConfig& cfg);
+
+// Assemble a geometry-augmented prompt from the latest free-space state
+// plus a user-facing question. Gemma receives sector distances and the
+// suggested direction verbatim so it can reference them in the reply.
+std::string buildGeometryPrompt(const FreeSpaceResult& fs,
+  const std::string& question);
+
+// Deterministic sentence generator. Location is derived from the
+// closest free-space sector (depth-truth, not VLM guess). Gemma's only
+// contribution is the object's name. Distance and direction come from
+// the sensor so the sentence never contradicts the geometry layer.
+std::string composeSentence(const FreeSpaceResult& fs,
+  const std::string& mainObject);

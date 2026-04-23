@@ -28,6 +28,7 @@
 #include <ctime>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iomanip>
 #include <print>
 #include <string>
@@ -41,7 +42,7 @@
 #include <librealsense2/rsutil.h>
 #include <opencv2/imgproc.hpp>
 
-#include "brain_client.h"
+#include "brain_pane.h"
 
 namespace {
 
@@ -165,12 +166,8 @@ int main() {
     camera.colorWidth(), camera.colorHeight(),
     camera.depthWidth(), camera.depthHeight(), camera.usbType());
 
-  // Phase 2B-4: brain state lives across frames so the Brain pane can
-  // show the last response even after the button is released.
-  BrainConfig brainCfg;
-  BrainResponse brainResp;
-  bool brainEverIssued = false;
-  std::string brainPrompt = "Briefly describe what's directly ahead. One sentence.";
+  // All Brain state + ImGui pane rendering lives in BrainPane.
+  BrainPane brainPane;
 
   const GLuint colorTex = createTexture();
   const GLuint depthTex = createTexture();
@@ -231,6 +228,13 @@ int main() {
     const bool mDown = glfwGetKey(window, GLFW_KEY_M) == GLFW_PRESS;
     if (mDown && !mWasDown) sonar.setEnabled(!sonar.isEnabled());
     mWasDown = mDown;
+
+    // SPACE fires the Brain Ask. Edge-detect so a held key only issues
+    // one request per press; BrainPane::render applies the state gate.
+    static bool spaceWasDown = false;
+    const bool spaceDown = glfwGetKey(window, GLFW_KEY_SPACE) == GLFW_PRESS;
+    const bool spaceJustPressed = spaceDown && !spaceWasDown;
+    spaceWasDown = spaceDown;
 
     if (camera.poll(colorBgr, depthMm16u, depthVizBgr)) {
       pendingGrabMs = glfwGetTime() * 1000.0;
@@ -438,45 +442,8 @@ int main() {
     ImGui::SetNextWindowPos(ImVec2(halfW, secondRowTop), ImGuiCond_Always);
     ImGui::SetNextWindowSize(ImVec2(winW - halfW, topdownH), ImGuiCond_Always);
     ImGui::Begin("Brain", nullptr, kFixedFlags);
-    ImGui::TextDisabled("model: %s", brainCfg.model.c_str());
-    const bool haveFrame = !colorBgr.empty();
-    if (ImGui::Button("Ask") && haveFrame) {
-      // Step 2B-4: synchronous blocking call. UI freezes 1-3 s during
-      // the VLM forward pass; 2B-5 moves this onto a worker thread.
-      brainResp = askOllama(brainPrompt, colorBgr, brainCfg);
-      brainEverIssued = true;
-      std::fprintf(stderr, "Brain resp: ok=%d ms=%.0f len=%zu err='%s'\n",
-        brainResp.ok, brainResp.roundtripMs, brainResp.text.size(),
-        brainResp.error.c_str());
-      std::fflush(stderr);
-    }
-    ImGui::SameLine();
-    if (!haveFrame) {
-      ImGui::TextDisabled("waiting for first frame...");
-    } else if (!brainEverIssued) {
-      ImGui::TextDisabled("idle");
-    } else if (brainResp.ok) {
-      ImGui::TextDisabled("done (%.2f s, %zu chars)",
-        brainResp.roundtripMs / 1000.0, brainResp.text.size());
-    } else {
-      ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f),
-        "failed (%.0f ms)", brainResp.roundtripMs);
-    }
-    ImGui::Separator();
-    ImGui::BeginChild("brain_resp", ImVec2(0, 0), true,
-      ImGuiWindowFlags_HorizontalScrollbar);
-    if (brainEverIssued && brainResp.ok) {
-      if (brainResp.text.empty()) {
-        ImGui::TextDisabled("[empty response - try bumping num_predict]");
-      } else {
-        ImGui::TextWrapped("%s", brainResp.text.c_str());
-      }
-    } else if (brainEverIssued && !brainResp.error.empty()) {
-      ImGui::TextWrapped("%s", brainResp.error.c_str());
-    } else {
-      ImGui::TextDisabled("Press Ask to describe the current view.");
-    }
-    ImGui::EndChild();
+    brainPane.render(glfwGetTime() * 1000.0, colorBgr, freeResult,
+      spaceJustPressed);
     ImGui::End();
 
     // Row 3: Controls spanning the full bottom.
