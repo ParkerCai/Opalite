@@ -214,13 +214,19 @@ public class MainActivity extends Activity {
     private final Runnable startLongPressRecognition = this::beginVoiceCapture;
     // Default short-tap prompt. Long-press recording replaces this with
     // whatever the user says.
+    // Gemma replies in the strict "<object>|<side>" format. Java composes
+    // the final spoken sentence by combining the object with the real
+    // geometry-derived distance from the depth camera, not Gemma's guess.
     private static final String SHORT_PRESS_PROMPT =
-        "You are narrating for a visually impaired user. Name the main "
-        + "object or scene ahead in one short sentence, starting with "
-        + "the object itself (e.g. \"A sofa with a blue throw pillow.\"). "
-        + "Do not mention \"the camera\", \"the image\", \"the photo\", "
-        + "or \"in front of\". Do not describe what the camera sees; "
-        + "describe what is there.";
+        "You are identifying the main object in front of a blind user. "
+        + "Reply in EXACTLY this format and nothing else: "
+        + "<short_object_description>|<side>\n"
+        + "where <side> is one of: left, center, right.\n"
+        + "The <short_object_description> is at most 4 words and includes "
+        + "color if obvious. Do NOT include distance, do NOT add quotes, "
+        + "do NOT explain, do NOT add any other text.\n"
+        + "Good examples: white door|left   black sofa|center   "
+        + "wooden desk|right";
 
     // Rolling CSV of Brain round-trip latencies. Written to the app's
     // external files dir so it's reachable with `adb pull` without any
@@ -569,9 +575,6 @@ public class MainActivity extends Activity {
                     final String question = matches.get(0);
                     lastRecognizedQuestion = question;
                     log("voice: \"" + question + "\"");
-                    // App-control commands are handled locally (TTS confirms).
-                    // Anything not recognized as a command falls through to
-                    // the Brain query with the color frame attached.
                     if (tryHandleVoiceCommand(question)) {
                         statusText.setText("idle");
                     } else {
@@ -607,6 +610,10 @@ public class MainActivity extends Activity {
                 longPressActive = false;
                 uiHandler.removeCallbacks(startLongPressRecognition);
                 if (longPressRecording) {
+                    // Flip the flag BEFORE stopListening so the pending
+                    // onResults treats it as the final turn and does not
+                    // restart the recognizer.
+                    longPressRecording = false;
                     if (speechRecognizer != null) speechRecognizer.stopListening();
                     statusText.setText("transcribing...");
                 } else {
@@ -630,14 +637,16 @@ public class MainActivity extends Activity {
         }
         longPressRecording = true;
         statusText.setText("listening...");
+        // Cancel any lingering state from the previous session so rapid
+        // repeats do not trip ERROR_RECOGNIZER_BUSY.
+        try { speechRecognizer.cancel(); } catch (Throwable ignored) {}
         final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
             RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent.putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, getPackageName());
         intent.putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false);
-        // Long maximum input length for open-ended questions.
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 1500L);
-        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 1500L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 2000L);
+        intent.putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L);
         speechRecognizer.startListening(intent);
     }
 
@@ -719,11 +728,51 @@ public class MainActivity extends Activity {
             return;
         }
         final String host = hostEdit.getText().toString().trim();
-        final String prompt =
-            "You are narrating for a visually impaired user. Answer this "
-            + "question based on what you see in the image, in one short "
-            + "conversational sentence. Question: \"" + question + "\"";
-        log("brain: voice q -> " + host + " (" + jpeg.length + " B)");
+        // Two routes: spatial/locator questions get the structured
+        // <object>|<side> format and geometry-grounded sentence;
+        // everything else gets a short free-form scene description.
+        final boolean locator = isLocatorQuestion(question);
+        final String prompt = locator
+            ? "You are helping a blind user locate something. Look at the "
+                + "image and answer their question.\n"
+                + "Reply in EXACTLY this format and nothing else: "
+                + "<short_object_description>|<side>\n"
+                + "where <side> is one of: left, center, right.\n"
+                + "If what they asked about is not visible in the image, "
+                + "reply exactly: none|none\n"
+                + "The <short_object_description> is at most 4 words and "
+                + "includes color if obvious. Do NOT include distance, "
+                + "do NOT add quotes, do NOT explain.\n"
+                + "Good examples: white door|left   black sofa|center   "
+                + "red chair|right   none|none\n"
+                + "Question: \"" + question + "\""
+            : "You are narrating a scene for a blind user. Answer their "
+                + "question in ONE short sentence, under 15 words. "
+                + "Name the main objects or describe the scene. "
+                + "NEVER use: \"the image\", \"the photo\", \"this shows\", "
+                + "\"I see\", \"I can see\", \"it appears\", \"there is\", "
+                + "\"there are\", \"in the foreground\", \"in the background\", "
+                + "\"the camera\". No preamble, no hedging, no explanation. "
+                + "Just the sentence.\n"
+                + "Good examples: \"Living room with a gray sofa, chair, "
+                + "and coffee table.\"  \"Kitchen counter with a microwave "
+                + "and fruit bowl.\"  \"Hallway with a closed door at the "
+                + "end.\"\n"
+                + "Question: \"" + question + "\"";
+        // For locator queries, snapshot geometry so Java can compose a
+        // grounded sentence using the sensor's real distance.
+        final float[] nearsAtAsk = new float[3];
+        final boolean[] validAtAsk = new boolean[3];
+        synchronized (scoresLock) {
+            nearsAtAsk[0] = lastNearM[0];
+            nearsAtAsk[1] = lastNearM[1];
+            nearsAtAsk[2] = lastNearM[2];
+            validAtAsk[0] = lastValid[0];
+            validAtAsk[1] = lastValid[1];
+            validAtAsk[2] = lastValid[2];
+        }
+        log("brain: voice q (" + (locator ? "locator" : "describe")
+            + ") -> " + host + " (" + jpeg.length + " B)");
         brainInFlight = true;
         uiHandler.post(() -> {
             describeButton.setEnabled(false);
@@ -735,12 +784,21 @@ public class MainActivity extends Activity {
             final long dtMs = SystemClock.elapsedRealtime() - t0;
             final boolean ok = resp != null && !resp.startsWith("ERROR:");
             logBrainLatency(dtMs, ok);
+            final String spoken;
+            if (!ok) {
+                spoken = "brain error";
+            } else if (locator) {
+                spoken = composeGroundedSentence(resp, nearsAtAsk, validAtAsk);
+            } else {
+                spoken = stripFillerPhrases(resp);
+            }
             uiHandler.post(() -> {
                 brainInFlight = false;
                 describeButton.setEnabled(keepStreaming);
                 statusText.setText(ok ? "done " + dtMs + "ms" : "brain error");
                 log("brain: " + dtMs + "ms - " + resp);
-                if (ok) maybeSpeak(resp);
+                log("say: " + spoken);
+                if (ok) maybeSpeak(spoken);
             });
         });
     }
@@ -971,6 +1029,16 @@ public class MainActivity extends Activity {
         }
         final String host = hostEdit.getText().toString().trim();
         final String prompt = SHORT_PRESS_PROMPT;
+        final float[] nearsAtAsk = new float[3];
+        final boolean[] validAtAsk = new boolean[3];
+        synchronized (scoresLock) {
+            nearsAtAsk[0] = lastNearM[0];
+            nearsAtAsk[1] = lastNearM[1];
+            nearsAtAsk[2] = lastNearM[2];
+            validAtAsk[0] = lastValid[0];
+            validAtAsk[1] = lastValid[1];
+            validAtAsk[2] = lastValid[2];
+        }
         log("brain: requesting (" + jpeg.length + " B jpeg) -> " + host);
         brainInFlight = true;
         describeButton.setEnabled(false);
@@ -980,17 +1048,129 @@ public class MainActivity extends Activity {
             final long dtMs = SystemClock.elapsedRealtime() - t0;
             final boolean ok = resp != null && !resp.startsWith("ERROR:");
             logBrainLatency(dtMs, ok);
+            final String spoken = ok
+                ? composeGroundedSentence(resp, nearsAtAsk, validAtAsk)
+                : "brain error";
             uiHandler.post(() -> {
                 brainInFlight = false;
                 describeButton.setEnabled(keepStreaming);
                 log("brain: " + dtMs + " ms (median "
                     + String.format(Locale.US, "%.0f", brainLatencyMedianMs)
                     + " ms) - " + resp);
-                if (ok) {
-                    maybeSpeak(resp);
-                }
+                log("say: " + spoken);
+                if (ok) maybeSpeak(spoken);
             });
         });
+    }
+
+    // Parse Gemma's "<object>|<side>" reply and compose a grounded
+    // sentence using the sensor's real distance at the chosen side.
+    // Falls back gracefully if the reply is malformed.
+    // True if the question asks WHERE something is (locator query).
+    // These go through the structured <object>|<side> + grounded-distance
+    // path. Everything else gets free-form scene description.
+    private static boolean isLocatorQuestion(String q) {
+        if (q == null) return false;
+        final String n = " " + q.toLowerCase(Locale.US).trim() + " ";
+        return n.contains(" where ")
+            || n.contains("where's")
+            || n.contains("where is")
+            || n.contains("where are")
+            || n.contains(" find ")
+            || n.contains(" locate ")
+            || n.contains(" point to ")
+            || n.contains(" point out ")
+            || n.contains(" which side ")
+            || n.contains(" which direction ")
+            || n.contains(" how far ");
+    }
+
+    // Defensive filler cleanup for free-form answers. Gemma usually
+    // obeys the prompt but occasionally slips a preamble through.
+    private static String stripFillerPhrases(String raw) {
+        if (raw == null) return "";
+        String s = raw.trim();
+        // Strip surrounding quotes and stray code fences.
+        if (s.startsWith("`")) s = s.replaceAll("`", "");
+        if (s.startsWith("\"") && s.endsWith("\"") && s.length() >= 2) {
+            s = s.substring(1, s.length() - 1);
+        }
+        // Take the first sentence only.
+        final int nl = s.indexOf('\n');
+        if (nl >= 0) s = s.substring(0, nl).trim();
+        final String[] leadings = {
+            "the image shows ", "the image depicts ", "the image has ",
+            "the photo shows ", "the photo depicts ",
+            "this image shows ", "this photo shows ", "this shows ",
+            "i can see ", "i see ", "it appears that ", "it appears ",
+            "in the foreground ", "in the background ",
+            "in front of the camera ", "the camera is showing ",
+            "here we see ", "here is ", "here's "
+        };
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            final String lower = s.toLowerCase(Locale.US);
+            for (String lead : leadings) {
+                if (lower.startsWith(lead)) {
+                    s = s.substring(lead.length()).trim();
+                    changed = true;
+                    break;
+                }
+            }
+        }
+        if (!s.isEmpty()) {
+            s = Character.toUpperCase(s.charAt(0)) + s.substring(1);
+        }
+        return s;
+    }
+
+    private static String composeGroundedSentence(String raw,
+            float[] nearM, boolean[] valid) {
+        if (raw == null) return "No answer.";
+        String r = raw.trim();
+        // Strip stray code fences / quotes that Gemma sometimes wraps.
+        if (r.startsWith("`")) r = r.replaceAll("`", "");
+        if (r.startsWith("\"") && r.endsWith("\"") && r.length() >= 2) {
+            r = r.substring(1, r.length() - 1);
+        }
+        final int nl = r.indexOf('\n');
+        if (nl >= 0) r = r.substring(0, nl).trim();
+        final int bar = r.indexOf('|');
+        if (bar < 0) return r.isEmpty() ? "No answer." : r;
+        String object = r.substring(0, bar).trim();
+        String side   = r.substring(bar + 1).trim().toLowerCase(Locale.US);
+        // Strip trailing punctuation on side.
+        while (!side.isEmpty()
+                && !Character.isLetter(side.charAt(side.length() - 1))) {
+            side = side.substring(0, side.length() - 1);
+        }
+        if (object.isEmpty() || object.equalsIgnoreCase("none")
+                || side.equals("none") || side.equals("unknown")
+                || side.isEmpty()) {
+            return "Not visible.";
+        }
+        final String where;
+        final float near;
+        final boolean isValid;
+        switch (side) {
+            case "left":
+                where = "on the left";
+                near = nearM[0]; isValid = valid[0]; break;
+            case "right":
+                where = "on the right";
+                near = nearM[2]; isValid = valid[2]; break;
+            default:
+                where = "in front";
+                near = nearM[1]; isValid = valid[1]; break;
+        }
+        final String obj = Character.toUpperCase(object.charAt(0))
+                + object.substring(1);
+        if (isValid && near > 0.05f) {
+            return String.format(Locale.US, "%s %s, %.1f meters.",
+                obj, where, near);
+        }
+        return obj + " " + where + ".";
     }
 
     // BGR would match the Windows build, but the pipeline is configured for
