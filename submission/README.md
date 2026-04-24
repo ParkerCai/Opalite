@@ -14,7 +14,7 @@ The main claim of the project is that pairing a fast depth-geometry analyzer wit
 
 Latest version of the demo video (Google Drive, "Anyone with the link" view access):
 
-**<https://drive.google.com/file/d/1X_PbR2FerQNciU3VgEspeMiEBj2biSt4/view?usp=sharing>**
+**[https://drive.google.com/file/d/1X_PbR2FerQNciU3VgEspeMiEBj2biSt4/view?usp=sharing](https://drive.google.com/file/d/1X_PbR2FerQNciU3VgEspeMiEBj2biSt4/view?usp=sharing)**
 
 The link is stable: the file is updated in place via Drive's "Manage versions" feature, so this URL always points to the most recent demo. Latest known upload: see `Opalite_demo.mp4` modification time in Drive.
 
@@ -22,7 +22,7 @@ The link is stable: the file is updated in place via Drive's "Manage versions" f
 
 The code is bundled with this submission and also lives at:
 
-**<https://github.com/ParkerCai/Opalite>**
+**[https://github.com/ParkerCai/Opalite](https://github.com/ParkerCai/Opalite)**
 
 ### Repository layout (relevant pieces)
 
@@ -46,35 +46,6 @@ Opalite/
 └── README.md                           # project README (build/setup for development)
 ```
 
-## How to build the desktop binary
-
-Detailed build steps are in the top-level `README.md`. Short version:
-
-- Windows + Visual Studio 2022 (Desktop C++ workload)
-- CMake 3.24+
-- Intel RealSense SDK 2.0 installed at the default location, or pass `-DREALSENSE_SDK_DIR=...`
-- OpenCV 4.x with `OpenCV_DIR` set
-- D435i plugged into a USB 3 port
-
-```
-cmake -S . -B .build -G "Visual Studio 17 2022"
-cmake --build .build --config Release
-.\.build\bin\Release\opalite.exe
-```
-
-For the optional Brain pane (Phase 2B):
-- Install Ollama from <https://ollama.com>
-- `ollama pull gemma4:e2b`
-- Make sure the Ollama server is reachable at `http://localhost:11434`
-
-## How to run the Android edge port
-
-See `android/opalite-edge/README.md`. Short version:
-- Android Studio Hedgehog (or newer) with NDK 26
-- Plug a D435i into the phone via USB-OTG
-- Build the `app-debug` configuration and install to a USB-OTG-capable Android device
-- Optional: set `OLLAMA_HOST=0.0.0.0:11434` on a host PC on the same LAN to enable Brain queries from the phone
-
 ## Datasets
 
 There is no static dataset for this submission. Evaluation is against live D435i streams in controlled indoor scenes (see `evaluation/TESTING.md` for the procedures). Latency telemetry is recorded to `data/latency.csv` and `data/brain_latency.csv` during normal use.
@@ -83,4 +54,3 @@ There is no static dataset for this submission. Evaluation is against live D435i
 
 - The IEEE-format report PDF is `submission/final_project_report.pdf`. The markdown source is `docs/final_project_report.md`.
 - The `opalite-webapp/` directory is an earlier hackathon prototype (Gemini Live API + browser camera). It is preserved in the repo as historical context but is **not** part of the CS5330 final project submission. The submitted system is the C++ desktop GUI + Android port described in the report.
-
