@@ -1,0 +1,139 @@
+<mxfile host="65bd71144e">
+    <diagram id="fig1_system_block" name="Fig. 1 - System overview">
+        <mxGraphModel dx="3059" dy="2121" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="860" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="title" value="Fig. 1 — Opalite system overview. Geometry is the deterministic spine; the VLM is an on-demand side branch that contributes only object names." style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=2;fontColor=#555555;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="10" width="1320" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="geom_group" value="Geometry pipeline (deterministic, ~9 ms / frame)" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#555555;fontSize=10;fontStyle=1;fontColor=#333333;align=left;verticalAlign=top;spacingLeft=12;spacingTop=8;arcSize=8;" parent="1" vertex="1">
+                    <mxGeometry x="620" y="200" width="380" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="sensor" value="Intel RealSense D435i&lt;br&gt;color BGR8 + depth Z16 (mm)&lt;br&gt;848×480 @ 30 fps" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#333333;fontColor=#222222;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="320" width="180" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="align" value="rs2::align&#xa;(depth → color)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#333333;fontColor=#222222;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="260" y="330" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="aligned" value="Aligned&#xa;color + depth&#xa;frame" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#333333;fontColor=#222222;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="325" width="140" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="freespace" value="free_space.cpp :: analyzeForwardPath()&#xa;&#xa;sector ROIs · 5th-percentile near-depth&#xa;min-support gate · sticky-center bias" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E8E8E8;strokeColor=#0B4FA8;strokeWidth=2;dashed=1;fontColor=#222222;fontSize=10;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="350" width="340" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="topdown" value="topdown.cpp :: buildTopDown()&#xa;&#xa;X / Z occupancy projection" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E8E8E8;strokeColor=#333333;fontColor=#222222;fontSize=10;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="250" width="340" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="4" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="hud" target="tts">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="hud" value="UI HUD&#xa;&#xa;Steering decision:&#xa;LEFT / CENTER / RIGHT" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#333333;fontColor=#222222;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="1080" y="350" width="280" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="composer" value="composeSentence( geometry, mainObject, side )&#xa;&#xa;geometry skeleton + VLM noun&#xa;→ spoken sentence" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#333333;strokeWidth=2;fontColor=#111111;fontSize=11;fontStyle=1;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="1080" y="190" width="280" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="tts" value="TextToSpeech&#xa;→ speaker / headphones" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#A07A00;fontColor=#333333;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="1080" y="540" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="sonar" value="sonar.cpp&#xa;&#xa;stereo audio @ 48 kHz&#xa;quartic falloff · 110 Hz carrier" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E8E8E8;strokeColor=#0B4FA8;strokeWidth=2;dashed=1;fontColor=#222222;fontSize=10;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="540" width="340" height="90" as="geometry"/>
+                </mxCell>
+                <mxCell id="trigger" value="User press / voice trigger" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D7E3F3;strokeColor=#2E5A87;fontColor=#1F3A5F;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="80" width="200" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="jpeg" value="JPEG-encode&#xa;color frame" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D7E3F3;strokeColor=#2E5A87;fontColor=#1F3A5F;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="370" y="75" width="140" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="brain_client" value="brain_client.cpp :: askOllama()&#xa;&#xa;HTTP POST" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D7E3F3;strokeColor=#0B4FA8;strokeWidth=2;dashed=1;fontColor=#1F3A5F;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="75" width="240" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="3" style="edgeStyle=none;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="ollama" target="composer">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ollama" value="Ollama @ localhost:11434&#xa;gemma4:e2b  (VLM, side branch)" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D7E3F3;strokeColor=#2E5A87;fontColor=#1F3A5F;fontSize=11;align=center;verticalAlign=middle;" parent="1" vertex="1">
+                    <mxGeometry x="1080" y="75" width="280" height="70" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_sensor_align" style="endArrow=classic;html=1;strokeColor=#333333;fontSize=9;" parent="1" source="sensor" target="align" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_align_aligned" style="endArrow=classic;html=1;strokeColor=#333333;fontSize=9;" parent="1" source="align" target="aligned" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_aligned_freespace" value="depth + color" style="endArrow=classic;html=1;strokeColor=#333333;fontSize=9;labelBackgroundColor=#FFFFFF;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.75;exitDx=0;exitDy=0;edgeStyle=orthogonalEdgeStyle;" parent="1" source="aligned" target="freespace" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_aligned_topdown" value="depth" style="endArrow=classic;html=1;strokeColor=#333333;fontSize=9;labelBackgroundColor=#FFFFFF;entryX=0;entryY=0.5;entryDx=0;entryDy=0;exitX=1;exitY=0.25;exitDx=0;exitDy=0;edgeStyle=elbowEdgeStyle;" parent="1" source="aligned" target="topdown" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_fs_hud" value="steering decision" style="endArrow=classic;html=1;strokeColor=#333333;fontSize=9;labelBackgroundColor=#FFFFFF;entryX=0;entryY=0.5;entryDx=0;entryDy=0;edgeStyle=orthogonalEdgeStyle;elbow=vertical;exitX=1;exitY=0.75;exitDx=0;exitDy=0;" parent="1" source="freespace" target="hud" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="980" y="270" as="sourcePoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_fs_composer" value="geometry skeleton&#xa;(distance + direction)" style="endArrow=classic;html=1;strokeColor=#333333;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.25;entryDx=0;entryDy=0;edgeStyle=elbowEdgeStyle;" parent="1" source="freespace" target="composer" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_fs_sonar" value="per-sector clearance scores" style="endArrow=classic;html=1;strokeColor=#333333;fontSize=9;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" parent="1" source="freespace" target="sonar" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <Array as="points">
+                            <mxPoint x="810" y="520"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="e_trigger_jpeg" style="endArrow=classic;html=1;strokeColor=#2E5A87;fontSize=9;" parent="1" source="trigger" target="jpeg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_jpeg_client" style="endArrow=classic;html=1;strokeColor=#2E5A87;fontSize=9;" parent="1" source="jpeg" target="brain_client" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_client_ollama" value="JSON-schema constrained&#xa;prompt → &lt;object&gt;|&lt;side&gt;" style="endArrow=classic;html=1;strokeColor=#2E5A87;fontSize=9;labelBackgroundColor=#FFFFFF;" parent="1" source="brain_client" target="ollama" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_aligned_jpeg" value="color frame&#xa;(on demand)" style="endArrow=classic;html=1;strokeColor=#2E5A87;fontSize=9;dashed=1;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;edgeStyle=elbowEdgeStyle;elbow=vertical;" parent="1" source="aligned" target="jpeg" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_box" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;fontSize=9;align=left;verticalAlign=top;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="680" width="1300" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_title" value="Legend" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=10;fontStyle=1;fontColor=#333333;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="688" width="100" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_geom_chip" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#333333;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="715" width="26" height="18" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_geom_label" value="Geometry spine (deterministic)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#222222;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="712" width="260" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_vlm_chip" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#D7E3F3;strokeColor=#2E5A87;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="715" width="26" height="18" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_vlm_label" value="VLM side branch (on-demand, optional)" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#1F3A5F;" parent="1" vertex="1">
+                    <mxGeometry x="455" y="712" width="300" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_portable_chip" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0B4FA8;strokeWidth=2;dashed=1;" parent="1" vertex="1">
+                    <mxGeometry x="710" y="715" width="26" height="18" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_portable_label" value="Thick dashed blue border: module compiles into both bin/opalite.exe (Windows) and libopaliteedge.so (Android NDK) — free_space.cpp, sonar.cpp, brain_client.cpp." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#222222;" parent="1" vertex="1">
+                    <mxGeometry x="745" y="705" width="570" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_dash_chip" value="" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=none;strokeColor=#555555;" parent="1" vertex="1">
+                    <mxGeometry x="55" y="755" width="26" height="18" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_dash_label" value="Thin dashed gray group outline: logical pipeline stage (e.g. Geometry pipeline)." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#222222;" parent="1" vertex="1">
+                    <mxGeometry x="90" y="752" width="560" height="24" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend_ondemand_chip" value="" style="endArrow=classic;html=1;strokeColor=#2E5A87;fontSize=9;dashed=1;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="710" y="764" as="sourcePoint"/>
+                        <mxPoint x="740" y="764" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="legend_ondemand_label" value="Dashed blue arrow: on-demand data flow (fires only when the user triggers the Brain pane)." style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=9;fontColor=#1F3A5F;" parent="1" vertex="1">
+                    <mxGeometry x="745" y="752" width="620" height="24" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
