@@ -176,8 +176,6 @@ uses, bridged through a thin `jni_bridge.cpp`. `miniaudio` picks
 AAudio or OpenSL on the NDK side and drives the phone's speaker /
 headphones directly.
 
-Shipped tonight:
-
 - **Four-pane preview** — Color + Depth (top), Top-Down + Sonar
   column (bottom). Color has L / C / R ROI overlays and a live
   `fwd X.XX m` readout; Top-Down has clearance-colored cone wedges
